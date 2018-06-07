@@ -61,22 +61,44 @@ public class NodeEnvironment extends AbstractComponent {
             localNodeId = -1;
             return;
         }
-
+        //dataWithClusterFiles 与 path.data配置有关系  path.data配置多个，nodesfiles就会产生多个，一般就配置一个目录（挂载多个时通过配置这个来扩展存储资源？）
         File[] nodesFiles = new File[environment.dataWithClusterFiles().length];
         Lock[] locks = new Lock[environment.dataWithClusterFiles().length];
         int localNodeId = -1;
         IOException lastException = null;
+
+        /*
+        node.max_local_storage_nodes  此参数用来配置  若是使用一台机器运行多个实例  多个实例共享path.data  最多共享个数
+        https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-node.html
+         */
         int maxLocalStorageNodes = settings.getAsInt("node.max_local_storage_nodes", 50);
         for (int possibleLockId = 0; possibleLockId < maxLocalStorageNodes; possibleLockId++) {
             for (int dirIndex = 0; dirIndex < environment.dataWithClusterFiles().length; dirIndex++) {
+                //{path.data}/nodes/0
                 File dir = new File(new File(environment.dataWithClusterFiles()[dirIndex], "nodes"), Integer.toString(possibleLockId));
                 if (!dir.exists()) {
-                    FileSystemUtils.mkdirs(dir);
+                    FileSystemUtils.mkdirs(dir);  //创建目录
                 }
                 logger.trace("obtaining node lock on {} ...", dir.getAbsolutePath());
                 try {
+                    /*
+                       NativeFSLock  中static HashSet<String> LOCK_HELD
+                       中存储的是 已成功持有的文件锁名称   可以通过lockPrefix来对同一个dir产生多个锁   这里LOCK_HELD存的实际上是
+                       {path.data}/nodes/0/node.lock
+
+                        这里的tmpLock.obtain();方法实际上就是  测试当前possibleLockId是否已经在LOCK_HELD存在，
+                        若是存在，说明有别的实例使用了possibleLockId，循环使用下一个
+                        若是不存在
+                            测试能否channel.tryLock();  来获取文件锁，文件就是{path.data}/nodes/{possibleLockId}/node.lock
+                            若是获取成功则将{path.data}/nodes/0/node.lock添加到LOCK_HELD，
+                            失败则从LOCK_HELD remove
+
+
+                     实际上使本地运行的多个NodeEnvironment都持有一个不同的文件锁                  此通道的文件的独占锁定。
+
+                     */
                     NativeFSLockFactory lockFactory = new NativeFSLockFactory(dir);
-                    Lock tmpLock = lockFactory.makeLock("node.lock");
+                    Lock tmpLock = lockFactory.makeLock("node.lock");  //返回一个  NativeFSLock对象
                     boolean obtained = tmpLock.obtain();
                     if (obtained) {
                         locks[dirIndex] = tmpLock;
@@ -85,6 +107,7 @@ public class NodeEnvironment extends AbstractComponent {
                     } else {
                         logger.trace("failed to obtain node lock on {}", dir.getAbsolutePath());
                         // release all the ones that were obtained up until now
+                        //只要有个没获取成功，就释放掉所有锁
                         for (int i = 0; i < locks.length; i++) {
                             if (locks[i] != null) {
                                 try {
@@ -114,7 +137,7 @@ public class NodeEnvironment extends AbstractComponent {
                     break;
                 }
             }
-            if (locks[0] != null) {
+            if (locks[0] != null) { //说明内部循环 锁获取 obtain都成功了  直接break
                 // we found a lock, break
                 break;
             }
@@ -139,6 +162,7 @@ public class NodeEnvironment extends AbstractComponent {
 
         this.nodeIndicesLocations = new File[nodeFiles.length];
         for (int i = 0; i < nodeFiles.length; i++) {
+            //   {path.data}/indices
             nodeIndicesLocations[i] = new File(nodeFiles[i], "indices");
         }
     }

@@ -153,6 +153,14 @@ public final class InternalNode implements Node {
         CompressorFactory.configure(settings);
 
         //node environment
+        /*
+        根据 path.data  测试是否能够获取文件锁
+        初始化这个几个参数
+        nodeFiles                      {path.data}
+        nodeIndicesLocations            {path.data}/indices
+        locks                           {path.data}/nodes/0/node.lock               0 是localNodeId   文件锁
+        localNodeId                     0                                        本地node的id  一个机器可能有多个nodeEnvironment
+         */
         NodeEnvironment nodeEnvironment = new NodeEnvironment(this.settings, this.environment);
 
         ModulesBuilder modules = new ModulesBuilder();
