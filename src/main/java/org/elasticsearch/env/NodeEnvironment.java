@@ -96,6 +96,19 @@ public class NodeEnvironment extends AbstractComponent {
 
                      实际上使本地运行的多个NodeEnvironment都持有一个不同的文件锁                  此通道的文件的独占锁定。
 
+
+                    这里传入的dir，通过固定lockName（node.lock）  虽然tmpLock实际上是{path.data}/nodes/0/node.lock的文件锁
+                    但是可以把这个锁当做dir的目录锁（前提是其他想操作dir的代码都按照NativeFSLockFactory  .makeLock("node.lock")方式来获取锁
+                    ）
+
+
+                    lockName  lockdir
+                      一个lockdir下可有多个lockname
+                      若是lockname固定不变   一个lockdir  实际上对应一个lockname
+                      也就是一个lockdir  对应一个锁   虽然这个锁  是文件lockdir/lockname  的文件锁
+
+                       其他也想操作这个lockdir的代码 若是也使用这种方式来获取lockdir的锁，会获取失败，因为LOCK_HELD 记录了已被持有的文件锁
+                        想获取成功只需要换个lockname
                      */
                     NativeFSLockFactory lockFactory = new NativeFSLockFactory(dir);
                     Lock tmpLock = lockFactory.makeLock("node.lock");  //返回一个  NativeFSLock对象
