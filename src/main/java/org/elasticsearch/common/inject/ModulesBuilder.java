@@ -40,7 +40,7 @@ public class ModulesBuilder implements Iterable<Module> {
 
     public ModulesBuilder add(Module module) {
         modules.add(module);
-        if (module instanceof SpawnModules) {
+        if (module instanceof SpawnModules) {//实现了SpawnModules接口  具有创建子模块的功能
             Iterable<? extends Module> spawned = ((SpawnModules) module).spawnModules();
             for (Module spawn : spawned) {
                 add(spawn);
@@ -58,9 +58,10 @@ public class ModulesBuilder implements Iterable<Module> {
         Modules.processModules(modules);
         Injector injector = Guice.createInjector(modules);
         Injectors.cleanCaches(injector);
+        //asEagerSingleton()
         // in ES, we always create all instances as if they are eager singletons
         // this allows for considerable memory savings (no need to store construction info) as well as cycles
-        ((InjectorImpl) injector).readOnlyAllSingletons();
+        ((InjectorImpl) injector).readOnlyAllSingletons(); //所有module  都使用单例
         return injector;
     }
 

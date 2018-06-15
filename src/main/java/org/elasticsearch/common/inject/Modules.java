@@ -59,7 +59,7 @@ public class Modules {
 
     public static void processModules(Iterable<Module> modules) {
         for (Module module : modules) {
-            if (module instanceof PreProcessModule) {
+            if (module instanceof PreProcessModule) {  //实现了PreProcessModule接口的 module 可以在injector创建前  处理其他module  processModule方法
                 for (Module module1 : modules) {
                     ((PreProcessModule) module).processModule(module1);
                 }

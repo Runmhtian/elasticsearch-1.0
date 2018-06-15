@@ -56,7 +56,9 @@ public class ConcurrentDequeRecycler<T> extends DequeRecycler<T> {
     @Override
     protected boolean beforeRelease() {
         return size.incrementAndGet() <= maxSize;
-    }
+    }//先自增1  ，然后看是否队列满（maxSize）
+    //保证了  此方法返回True的时候，queue已经占据了一个位置，肯定是能够写入的，任何一个线程在自增size时，都保证 自己在能够写入queue情况下
+    //写入。  size是原子类型的，不会超过maxSize
 
     @Override
     protected void afterRelease(boolean recycled) {

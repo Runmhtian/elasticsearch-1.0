@@ -25,10 +25,15 @@ import org.elasticsearch.common.lease.Releasable;
  */
 public interface Recycler<T> {
 
+
     public static interface Factory<T> {
         Recycler<T> build();
     }
+    /*
+        T  泛型  在 调用时CacheRecycler 中是 map  例如   ObjectObjectOpenHashMap
 
+        C中  newInstance  ObjectObjectOpenHashMap
+     */
     public static interface C<T> {
 
         /** Create a new empty instance of the given size. */

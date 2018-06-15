@@ -19,25 +19,31 @@
 
 package org.elasticsearch.common.recycler;
 
+
+/*
+对Recycler   进行包装
+
+继承FilterRecycler  来根据参数  定制  获取到的Recycler.V  对象
+ */
 abstract class FilterRecycler<T> implements Recycler<T> {
 
     /** Get the delegate instance to foward calls to. */
-    protected abstract Recycler<T> getDelegate();
+    protected abstract Recycler<T> getDelegate();  //获取实例
 
     /** Wrap a recycled reference. */
     protected Recycler.V<T> wrap(Recycler.V<T> delegate) {
         return delegate;
-    }
+    }  //包装实例
 
     @Override
     public Recycler.V<T> obtain(int sizing) {
         return wrap(getDelegate().obtain(sizing));
-    }
+    }//方法重载
 
     @Override
     public Recycler.V<T> obtain() {
         return wrap(getDelegate().obtain());
-    }
+    }  //方法重载
 
     @Override
     public void close() {

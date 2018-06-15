@@ -162,9 +162,26 @@ public final class InternalNode implements Node {
         localNodeId                     0                                        本地node的id  一个机器可能有多个nodeEnvironment
          */
         NodeEnvironment nodeEnvironment = new NodeEnvironment(this.settings, this.environment);
+        /*
+        es 使用google开源的依赖注入框架guice，直接把guice源码放入到了es源码下，使用ModulesBuilder对guice中的module和injector进行简单封装
+        用于构建es的模块
 
+         */
         ModulesBuilder modules = new ModulesBuilder();
-        modules.add(new Version.Module(version));
+        modules.add(new Version.Module(version));  //new Version中的静态内部类  Module   版本模块
+        //根据setting Type配置   初始化CacheRecycler   不同配置
+        /*
+        Recycler  封装了各种map 如 IntIntOpenHashMap  LongObjectOpenHashMap
+
+        并通过 Type  配置了 Recycler的使用方式
+        threadLocal
+        cocurrent
+        concurrentDeque
+
+        并有softFactory  来设置  SoftReference
+
+        queue   暂时没看懂 CacheRecycler
+         */
         modules.add(new CacheRecyclerModule(settings));
         modules.add(new PageCacheRecyclerModule(settings));
         modules.add(new PluginsModule(settings, pluginsService));

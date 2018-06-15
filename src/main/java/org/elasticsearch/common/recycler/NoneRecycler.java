@@ -22,6 +22,10 @@ package org.elasticsearch.common.recycler;
 import org.elasticsearch.ElasticsearchIllegalStateException;
 
 /**
+ *
+ * 每次调用obtain  都new一个Recycler.V对象
+ *
+ * 调用release时   直接value=null  来垃圾回收
  */
 public class NoneRecycler<T> extends AbstractRecycler<T> {
 

@@ -34,7 +34,6 @@ import static org.elasticsearch.common.recycler.Recyclers.*;
 
 @SuppressWarnings("unchecked")
 public class CacheRecycler extends AbstractComponent {
-
     public final Recycler<ObjectObjectOpenHashMap> hashMap;
     public final Recycler<ObjectOpenHashSet> hashSet;
     public final Recycler<DoubleObjectOpenHashMap> doubleObjectMap;
@@ -62,13 +61,20 @@ public class CacheRecycler extends AbstractComponent {
         intObjectMap.close();
         objectFloatMap.close();
     }
+    /*
+    type
+    limit
+    smart_size
 
+     */
     @Inject
-    public CacheRecycler(Settings settings) {
+    public CacheRecycler(Settings settings) {  //Settings 从CacheRecyclerModule中注入？
         super(settings);
         final Type type = Type.parse(settings.get("type"));
         int limit = settings.getAsInt("limit", 10);
         int smartSize = settings.getAsInt("smart_size", 1024);
+
+        //获取可用处理器的数目 processors   default Math.min(32, Runtime.getRuntime().availableProcessors())
         final int availableProcessors = EsExecutors.boundedNumberOfProcessors(settings);
 
         hashMap = build(type, limit, smartSize, availableProcessors, new Recycler.C<ObjectObjectOpenHashMap>() {
@@ -260,6 +266,7 @@ public class CacheRecycler extends AbstractComponent {
     private <T> Recycler<T> build(Type type, int limit, int smartSize, int availableProcessors, Recycler.C<T> c) {
         Recycler<T> recycler;
         try {
+            //根据类型调用对应的build方法  返回对应的Recycler
             recycler = type.build(c, limit, availableProcessors);
             if (smartSize > 0) {
                 recycler = sizing(recycler, none(c), smartSize);
@@ -271,6 +278,16 @@ public class CacheRecycler extends AbstractComponent {
         return recycler;
     }
 
+
+    /*
+    枚举方法
+    实质上是用内部类实现的
+    重写Type中的build方法
+
+
+    threadLocal
+    Create a thread-local recycler, where each thread will have its own instance, create through the provided factory.
+     */
     public static enum Type {
         SOFT_THREAD_LOCAL {
             @Override

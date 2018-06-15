@@ -63,12 +63,13 @@ public enum Recyclers {
             @Override
             protected Recycler<T> getDelegate() {
                 return defaultRecycler;
-            }
+            }  //获取默认Recycler对象，也就是sizing  第一个参数
+            //根据接口定义  使用obtain()方法时（这里没有重写obtain()）  返回这个
 
             @Override
             public Recycler.V<T> obtain(int sizing) {
-                if (sizing > 0 && sizing < minSize) {
-                    return smallObjectRecycler.obtain(sizing);
+                if (sizing > 0 && sizing < minSize) {   //sizing < minSize,minSize就是smart_size
+                    return smallObjectRecycler.obtain(sizing);//  返回无回收机制的  Recycler
                 }
                 return super.obtain(sizing);
             }
@@ -83,6 +84,11 @@ public enum Recyclers {
     }
 
     /** Create a thread-local recycler, where each thread will have its own instance, create through the provided factory. */
+    /*
+    将Recycler  包装到CloseableThreadLocal   使Recycler  变为弱引用  new WeakReference<T>(object)
+
+    每个thread都有自己的  一个WeakReference<T>副本
+     */
     public static <T> Recycler<T> threadLocal(final Recycler.Factory<T> factory) {
         return new FilterRecycler<T>() {
 

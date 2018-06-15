@@ -425,7 +425,7 @@ public class Version implements Serializable {
 
         @Override
         protected void configure() {
-            bind(Version.class).toInstance(version);
+            bind(Version.class).toInstance(version);//实例绑定
         }
     }
 }
