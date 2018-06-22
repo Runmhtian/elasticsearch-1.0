@@ -213,6 +213,7 @@ public class ThreadPool extends AbstractComponent {
         return this.scheduler;
     }
 
+    //  按照固定间隔  执行任务  command  实现runnable接口需要执行的线程
     public ScheduledFuture<?> scheduleWithFixedDelay(Runnable command, TimeValue interval) {
         return scheduler.scheduleWithFixedDelay(new LoggingRunnable(command), interval.millis(), interval.millis(), TimeUnit.MILLISECONDS);
     }

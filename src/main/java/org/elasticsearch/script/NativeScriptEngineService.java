@@ -36,6 +36,10 @@ public class NativeScriptEngineService extends AbstractComponent implements Scri
 
     private final ImmutableMap<String, NativeScriptFactory> scripts;
 
+    /*
+    Map<String, NativeScriptFactory> scripts
+    来源于配置文件   和  ScriptModule.registerScript
+     */
     @Inject
     public NativeScriptEngineService(Settings settings, Map<String, NativeScriptFactory> scripts) {
         super(settings);

@@ -202,8 +202,17 @@ public final class InternalNode implements Node {
         // 节点缓存 bind(NodeCache.class).asEagerSingleton();
 //        bind(ByteBufferCache.class).asEagerSingleton();
         modules.add(new NodeCacheModule(settings));
+        /*
+        主要是两者的初始化
+        MvelScriptEngineService   mvel是基于java的表达式语言
+
+        script.native.?.type 中的配置
+        NativeScriptEngineService
+         */
         modules.add(new ScriptModule(settings));
+        //bind(Environment.class).toInstance(environment)
         modules.add(new EnvironmentModule(environment));
+        // 节点点环境信息
         modules.add(new NodeEnvironmentModule(nodeEnvironment));
         modules.add(new ClusterNameModule(settings));
         modules.add(new ThreadPoolModule(settings));

@@ -38,6 +38,10 @@ import static org.elasticsearch.common.unit.TimeValue.timeValueSeconds;
  * method. This service will call {@link org.elasticsearch.watcher.ResourceWatcher#checkAndNotify()} method of all
  * registered watcher periodically. The frequency of checks can be specified using {@code watcher.interval} setting, which
  * defaults to {@code 60s}. The service can be disabled by setting {@code watcher.enabled} setting to {@code false}.
+ *
+ * 通过add方法添加的ResourceWatcher   将会定期的调用其中实现的checkAndNotify方法
+ * 默认每60s   通过setting中的watcher.interval来设置
+ *
  */
 public class ResourceWatcherService extends AbstractLifecycleComponent<ResourceWatcherService> {
 
@@ -54,7 +58,7 @@ public class ResourceWatcherService extends AbstractLifecycleComponent<ResourceW
     @Inject
     public ResourceWatcherService(Settings settings, ThreadPool threadPool) {
         super(settings);
-        this.enabled = componentSettings.getAsBoolean("enabled", true);
+        this.enabled = componentSettings.getAsBoolean("enabled", true);  //  控制开启 ResourceWatcherService
         this.interval = componentSettings.getAsTime("interval", timeValueSeconds(60));
         this.threadPool = threadPool;
     }
@@ -94,6 +98,7 @@ public class ResourceWatcherService extends AbstractLifecycleComponent<ResourceW
         watchers.remove(watcher);
     }
 
+    // 实现runnable  功能是调用checkAndNotify方法
     private class ResourceMonitor implements Runnable {
 
         @Override

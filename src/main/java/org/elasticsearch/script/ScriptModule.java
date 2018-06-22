@@ -76,11 +76,11 @@ public class ScriptModule extends AbstractModule {
             scriptsBinder.addBinding(name).to(type);
         }
 
-        // Set<ScriptEngineService>
+        // Set<ScriptEngineService>   MvelScriptEngineService  NativeScriptEngineService
         Multibinder<ScriptEngineService> multibinder = Multibinder.newSetBinder(binder(), ScriptEngineService.class);
         multibinder.addBinding().to(NativeScriptEngineService.class);
         try {
-            multibinder.addBinding().to(MvelScriptEngineService.class);
+            multibinder.addBinding().to(MvelScriptEngineService.class);   // 依赖注入  MvelScriptEngineService  mvel表达式语言
         } catch (Throwable t) {
             // no MVEL
         }

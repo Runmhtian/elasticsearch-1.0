@@ -42,21 +42,23 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- *
+ *  mvel 表达式语言
  */
 public class MvelScriptEngineService extends AbstractComponent implements ScriptEngineService {
 
-    private final ParserConfiguration parserConfiguration;
+    private final ParserConfiguration parserConfiguration;  //mvel 的解析配置文件  添加包  和 函数  在表达式中可以直接使用
 
     @Inject
     public MvelScriptEngineService(Settings settings) {
         super(settings);
 
         parserConfiguration = new ParserConfiguration();
-        parserConfiguration.addPackageImport("java.util");
-        parserConfiguration.addPackageImport("org.joda.time");
+        parserConfiguration.addPackageImport("java.util");  //添加了java util包
+        parserConfiguration.addPackageImport("org.joda.time");// joda  的处理时间和日期包
+        // time  使用System.currentTimeMillis
         parserConfiguration.addImport("time", MVEL.getStaticMethod(System.class, "currentTimeMillis", new Class[0]));
         // unboxed version of Math, better performance since conversion from boxed to unboxed my mvel is not needed
+        // 添加了UnboxedMathUtils中的静态方法
         for (Method m : UnboxedMathUtils.class.getMethods()) {
             if ((m.getModifiers() & Modifier.STATIC) > 0) {
                 parserConfiguration.addImport(m.getName(), m);

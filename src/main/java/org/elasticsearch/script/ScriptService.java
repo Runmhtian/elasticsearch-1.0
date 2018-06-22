@@ -56,6 +56,7 @@ public class ScriptService extends AbstractComponent {
 
     private final String defaultLang;
 
+    //  script type 与 ScriptEngineService
     private final ImmutableMap<String, ScriptEngineService> scriptEngines;
 
     private final ConcurrentMap<String, CompiledScript> staticCache = ConcurrentCollections.newConcurrentMap();
@@ -69,7 +70,7 @@ public class ScriptService extends AbstractComponent {
     public ScriptService(Settings settings, Environment env, Set<ScriptEngineService> scriptEngines,
                          ResourceWatcherService resourceWatcherService) {
         super(settings);
-
+        //  componentSettings   org.elasticsearch.script.ScriptService
         int cacheMaxSize = componentSettings.getAsInt("cache.max_size", 500);
         TimeValue cacheExpire = componentSettings.getAsTime("cache.expire", null);
         logger.debug("using script cache with max_size [{}], expire [{}]", cacheMaxSize, cacheExpire);
@@ -77,6 +78,7 @@ public class ScriptService extends AbstractComponent {
         this.defaultLang = componentSettings.get("default_lang", "mvel");
         this.disableDynamic = componentSettings.getAsBoolean("disable_dynamic", false);
 
+        // guava 本地缓存
         CacheBuilder cacheBuilder = CacheBuilder.newBuilder();
         if (cacheMaxSize >= 0) {
             cacheBuilder.maximumSize(cacheMaxSize);
@@ -85,7 +87,7 @@ public class ScriptService extends AbstractComponent {
             cacheBuilder.expireAfterAccess(cacheExpire.nanos(), TimeUnit.NANOSECONDS);
         }
         this.cache = cacheBuilder.build();
-
+        //  从注入的 Set<ScriptEngineService>  添加到this.scriptEngines
         ImmutableMap.Builder<String, ScriptEngineService> builder = ImmutableMap.builder();
         for (ScriptEngineService scriptEngine : scriptEngines) {
             for (String type : scriptEngine.types()) {
@@ -94,17 +96,18 @@ public class ScriptService extends AbstractComponent {
         }
         this.scriptEngines = builder.build();
 
-        // put some default optimized scripts
+        // put some default optimized scripts    初始化了一个文档得分的 script到staticCache中
         staticCache.put("doc.score", new CompiledScript("native", new DocScoreNativeScriptFactory()));
 
-        // add file watcher for static scripts
-        scriptsDirectory = new File(env.configFile(), "scripts");
+        // add file watcher for static scripts  目录监控
+        scriptsDirectory = new File(env.configFile(), "scripts");   //env.configFile() settings.get("path.conf")
         FileWatcher fileWatcher = new FileWatcher(scriptsDirectory);
+        //Listener 封装需要执行的操作  一个目录的FileWatcher 可以有多个listener  FileWatcher中的文件行为方法  调用的是每个listener中的对应方法
         fileWatcher.addListener(new ScriptChangesListener());
 
         if (componentSettings.getAsBoolean("auto_reload_enabled", true)) {
             // automatic reload is enabled - register scripts
-            resourceWatcherService.add(fileWatcher);
+            resourceWatcherService.add(fileWatcher);  //添加  并调用fileWatcher 中的doinit方法了
         } else {
             // automatic reload is disable just load scripts once
             fileWatcher.init();
