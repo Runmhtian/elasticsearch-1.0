@@ -51,6 +51,7 @@ public class PlainByteBufferAllocator implements ByteBufferAllocator {
 
     public ByteBuffer allocate(Type type) throws IOException {
         int sizeToAllocate = type == Type.SMALL ? smallBufferSizeInBytes : largeBufferSizeInBytes;
+        //直接与 非直接缓冲区
         if (direct) {
             return ByteBuffer.allocateDirect(sizeToAllocate);
         }

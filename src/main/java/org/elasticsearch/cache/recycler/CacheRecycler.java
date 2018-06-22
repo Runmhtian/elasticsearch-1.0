@@ -34,6 +34,28 @@ import static org.elasticsearch.common.recycler.Recyclers.*;
 
 @SuppressWarnings("unchecked")
 public class CacheRecycler extends AbstractComponent {
+
+    /*
+    Recycler 根据配置 Type
+    可能是FilterRecycler的实例  （soft threadlocal，concurrent）
+    或者DequeRecycler
+    或者ConcurrentDequeRecycler
+
+
+    在构造函数中初始化了这些 map
+    通过obtain来使用
+
+    hashMap.obtain().v()  就是ObjectObjectOpenHashMap对象
+
+
+        实际上 使用的Recycler  就三个
+         DequeRecycler
+         ConcurrentDequeRecycler
+         和NoneRecycler
+    而FilterRecycler  对 DequeRecycler进行封装   使得DequeRecycler 对象的引用方式发生变化
+    DequeRecycler对象可以是 threadLocal   可以是soft  可以是concurrent
+
+     */
     public final Recycler<ObjectObjectOpenHashMap> hashMap;
     public final Recycler<ObjectOpenHashSet> hashSet;
     public final Recycler<DoubleObjectOpenHashMap> doubleObjectMap;
@@ -289,37 +311,48 @@ public class CacheRecycler extends AbstractComponent {
     Create a thread-local recycler, where each thread will have its own instance, create through the provided factory.
      */
     public static enum Type {
+
+
         SOFT_THREAD_LOCAL {
+            /*
+                local soft
+             */
             @Override
             <T> Recycler<T> build(Recycler.C<T> c, int limit, int availableProcessors) {
                 return threadLocal(softFactory(dequeFactory(c, limit)));
             }
         },
         THREAD_LOCAL {
+            //local  weak
             @Override
             <T> Recycler<T> build(Recycler.C<T> c, int limit, int availableProcessors) {
                 return threadLocal(dequeFactory(c, limit));
             }
         },
         QUEUE {
+            // 线程安全的队列  所有线程都使用  ConcurrentDequeRecycler  来获取Recycler
             @Override
             <T> Recycler<T> build(Recycler.C<T> c, int limit, int availableProcessors) {
                 return concurrentDeque(c, limit);
             }
         },
         SOFT_CONCURRENT {
+            // 根据availableProcessors  来产生若干个Recycler   根据线程id  使用Recycler   通过锁控制Recycler同时只有一个线程可操作
+            // soft
             @Override
             <T> Recycler<T> build(Recycler.C<T> c, int limit, int availableProcessors) {
                 return concurrent(softFactory(dequeFactory(c, limit)), availableProcessors);
             }
         },
         CONCURRENT {
+            //同上  去除soft
             @Override
             <T> Recycler<T> build(Recycler.C<T> c, int limit, int availableProcessors) {
                 return concurrent(dequeFactory(c, limit), availableProcessors);
             }
         },
         NONE {
+            // 每次使用时   new对象
             @Override
             <T> Recycler<T> build(Recycler.C<T> c, int limit, int availableProcessors) {
                 return none(c);

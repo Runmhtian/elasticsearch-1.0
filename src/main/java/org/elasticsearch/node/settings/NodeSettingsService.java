@@ -34,6 +34,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * A service that allows to register for node settings change that can come from cluster
  * events holding new settings.
+ *
+ * 已注册的节点 修改配置 使集群配置最新
+ *
  */
 public class NodeSettingsService extends AbstractComponent implements ClusterStateListener {
 

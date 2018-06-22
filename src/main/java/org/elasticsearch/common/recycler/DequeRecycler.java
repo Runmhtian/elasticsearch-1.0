@@ -43,6 +43,10 @@ import java.util.Deque;
  *
  *  而不是  T对象的线程安全，比如用多线程操作  ConcurrentDequeRecycler.obtain().v()  对象   这是T类线程安全问题
 
+
+    在Recyclers中对DequeRecycler  使用了软引用
+    防止deque中对象过多没有回收   造成内存溢出
+
  */
 public class DequeRecycler<T> extends AbstractRecycler<T> {
 

@@ -88,6 +88,11 @@ public enum Recyclers {
     将Recycler  包装到CloseableThreadLocal   使Recycler  变为弱引用  new WeakReference<T>(object)
 
     每个thread都有自己的  一个WeakReference<T>副本
+
+    CloseableThreadLocal  对java自带的ThreadLocal 进行了封装
+
+    ThreadLocalMap  中  key 和value  都是弱引用
+
      */
     public static <T> Recycler<T> threadLocal(final Recycler.Factory<T> factory) {
         return new FilterRecycler<T>() {
@@ -115,7 +120,9 @@ public enum Recyclers {
 
         };
     }
-
+    /*
+    软引用
+     */
     /** Create a recycler that is wrapped inside a soft reference, so that it cannot cause {@link OutOfMemoryError}s. */
     public static <T> Recycler<T> soft(final Recycler.Factory<T> factory) {
         return new FilterRecycler<T>() {
@@ -128,6 +135,11 @@ public enum Recyclers {
 
             @Override
             protected Recycler<T> getDelegate() {
+                /*
+                软引用
+                ref.get()  判断引用对象是否已经回收
+
+                 */
                 Recycler<T> recycler = ref.get();
                 if (recycler == null) {
                     recycler = factory.build();
@@ -208,6 +220,9 @@ public enum Recyclers {
     }
 
     /** Create a concurrent implementation that can support concurrent access from <code>concurrencyLevel</code> threads with little contention. */
+    /*
+    concurrencyLevel   可理解为并发级别
+     */
     public static <T> Recycler<T> concurrent(final Recycler.Factory<T> factory, final int concurrencyLevel) {
         if (concurrencyLevel < 1) {
             throw new ElasticsearchIllegalArgumentException("concurrencyLevel must be >= 1");
@@ -227,7 +242,7 @@ public enum Recyclers {
                 }
             }
 
-            final int slot() {
+            final int slot() {  //根据线程id  来产生 下标
                 final long id = Thread.currentThread().getId();
                 // don't trust Thread.hashCode to have equiprobable low bits
                 int slot = (int) MurmurHash3.hash(id);

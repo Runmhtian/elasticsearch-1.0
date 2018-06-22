@@ -172,22 +172,35 @@ public final class InternalNode implements Node {
         //根据setting Type配置   初始化CacheRecycler   不同配置
         /*
         Recycler  封装了各种map 如 IntIntOpenHashMap  LongObjectOpenHashMap
+        Recycler的主要功能是，通过队列使的这些map对象可以回收并新利用   NoneRecycler  没有重用机制
 
-        并通过 Type  配置了 Recycler的使用方式
-        threadLocal
-        cocurrent
-        concurrentDeque
-
-        并有softFactory  来设置  SoftReference
-
-        queue   暂时没看懂 CacheRecycler
+        可选择的在Recycler 外层又包了一层  引用方式   threadLocal cocurrent    softreference
          */
         modules.add(new CacheRecyclerModule(settings));
         modules.add(new PageCacheRecyclerModule(settings));
+        // 将实例pluginsService  绑定到 PluginsService.class
         modules.add(new PluginsModule(settings, pluginsService));
+        //配置 模块
         modules.add(new SettingsModule(settings));
+
+        /*
+        // 节点 模块
+        bind(Node.class).toInstance(node);   接口绑定到实现类
+        bind(NodeSettingsService.class).asEagerSingleton();   节点配置 更新集群配置
+        bind(NodeService.class).asEagerSingleton();  节点服务
+        public NodeService(Settings settings, ThreadPool threadPool, MonitorService monitorService, Discovery discovery,
+                       TransportService transportService, IndicesService indicesService,
+                       PluginsService pluginService, CircuitBreakerService circuitBreakerService, Version version)
+        参数依赖注入
+        NodeService  将各种服务都涵盖进来
+         */
         modules.add(new NodeModule(this));
+        /*
+        NetworkService  用于获取InetAddress对象
+         */
         modules.add(new NetworkModule());
+        // 节点缓存 bind(NodeCache.class).asEagerSingleton();
+//        bind(ByteBufferCache.class).asEagerSingleton();
         modules.add(new NodeCacheModule(settings));
         modules.add(new ScriptModule(settings));
         modules.add(new EnvironmentModule(environment));

@@ -25,6 +25,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 /**
  * The caching byte buffer allocator allows to define a global size for both the small and large buffers
  * allocated. Those will be reused when possible.
+ *
+ * 在PlainByteBufferAllocator的基础上添加BlockingQueue  来实现字节缓冲区缓存
  */
 public class CachingByteBufferAllocator extends PlainByteBufferAllocator {
 

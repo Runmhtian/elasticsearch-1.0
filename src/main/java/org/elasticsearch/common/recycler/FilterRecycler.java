@@ -21,7 +21,7 @@ package org.elasticsearch.common.recycler;
 
 
 /*
-对Recycler   进行包装
+对Recycler   进行包装  最终向外边暴露
 
 继承FilterRecycler  来根据参数  定制  获取到的Recycler.V  对象
  */

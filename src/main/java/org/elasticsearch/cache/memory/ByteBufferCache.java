@@ -61,6 +61,15 @@ public class ByteBufferCache extends AbstractComponent implements ByteBufferAllo
                 .put("cache.memory.direct", direct).build());
     }
 
+    /*
+    根据settings 配置初始化
+
+    创建一个PlainByteBufferAllocator对象，用于控制字节缓冲区
+    或者
+
+    创建一个CachingByteBufferAllocator（继承PlainByteBufferAllocator）对象，加入BlockingQueue队列 缓存
+
+     */
     @Inject
     public ByteBufferCache(Settings settings) {
         super(settings);

@@ -37,7 +37,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
 /**
- *
+ * 从settings 中解析 网络相关配置  获取InetAddress对象
  */
 public class NetworkService extends AbstractComponent {
 
@@ -78,7 +78,7 @@ public class NetworkService extends AbstractComponent {
          */
         InetAddress resolveIfPossible(String value);
     }
-
+    //存放  用于解析出InetAddress的CustomNameResolver对象
     private final List<CustomNameResolver> customNameResolvers = new CopyOnWriteArrayList<CustomNameResolver>();
 
     @Inject

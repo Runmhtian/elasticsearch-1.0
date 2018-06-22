@@ -56,13 +56,16 @@ public class ScriptModule extends AbstractModule {
 
     @Override
     protected void configure() {
+        //guice 中的MapBinder   处理通过registerScript方法添加进来的script
+        //Map<String,NativeScriptFactory>
         MapBinder<String, NativeScriptFactory> scriptsBinder
                 = MapBinder.newMapBinder(binder(), String.class, NativeScriptFactory.class);
         for (Map.Entry<String, Class<? extends NativeScriptFactory>> entry : scripts.entrySet()) {
-            scriptsBinder.addBinding(entry.getKey()).to(entry.getValue());
+            scriptsBinder.addBinding(entry.getKey()).to(entry.getValue());//添加绑定
         }
 
         // now, check for config based ones
+        // 实例化配置文件中的   NativeScriptFactory  添加到MapBinder中
         Map<String, Settings> nativeSettings = settings.getGroups("script.native");
         for (Map.Entry<String, Settings> entry : nativeSettings.entrySet()) {
             String name = entry.getKey();
@@ -73,6 +76,7 @@ public class ScriptModule extends AbstractModule {
             scriptsBinder.addBinding(name).to(type);
         }
 
+        // Set<ScriptEngineService>
         Multibinder<ScriptEngineService> multibinder = Multibinder.newSetBinder(binder(), ScriptEngineService.class);
         multibinder.addBinding().to(NativeScriptEngineService.class);
         try {
