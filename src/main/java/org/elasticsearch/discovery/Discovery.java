@@ -31,6 +31,8 @@ import org.elasticsearch.node.service.NodeService;
 import org.elasticsearch.rest.RestStatus;
 
 /**
+ * 发布集群状态到所有节点，选举master节点
+ *
  * A pluggable module allowing to implement discovery of other nodes, publishing of the cluster
  * state to all nodes, electing a master of the cluster that raises cluster state change
  * events.
@@ -50,7 +52,7 @@ public interface Discovery extends LifecycleComponent<Discovery> {
     String nodeDescription();
 
     /**
-     * Here as a hack to solve dep injection problem...
+     * Here as a hack to solve dep injection problem...   解决依赖注入问题？
      */
     void setNodeService(@Nullable NodeService nodeService);
 
@@ -61,6 +63,8 @@ public interface Discovery extends LifecycleComponent<Discovery> {
     void setAllocationService(AllocationService allocationService);
 
     /**
+     *
+     * 只有master节点能够调用
      * Publish all the changes to the cluster from the master (can be called just by the master). The publish
      * process should not publish this state to the master as well! (the master is sending it...).
      *

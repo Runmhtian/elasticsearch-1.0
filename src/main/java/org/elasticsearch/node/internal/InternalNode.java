@@ -214,8 +214,31 @@ public final class InternalNode implements Node {
         modules.add(new EnvironmentModule(environment));
         // 节点点环境信息
         modules.add(new NodeEnvironmentModule(nodeEnvironment));
+        // 集群名称
         modules.add(new ClusterNameModule(settings));
+        /*
+                public static final String SAME = "same";
+        public static final String GENERIC = "generic";
+        public static final String GET = "get";
+        public static final String INDEX = "index";
+        public static final String BULK = "bulk";
+        public static final String SEARCH = "search";
+        public static final String SUGGEST = "suggest";
+        public static final String PERCOLATE = "percolate";
+        public static final String MANAGEMENT = "management";
+        public static final String FLUSH = "flush";
+        public static final String MERGE = "merge";
+        public static final String REFRESH = "refresh";
+        public static final String WARMER = "warmer";
+        public static final String SNAPSHOT = "snapshot";
+        public static final String OPTIMIZE = "optimize";
+
+        初始化 这些值 对应的线程池
+         */
         modules.add(new ThreadPoolModule(settings));
+        /*
+        DiscoveryService  参数注入 Discovery
+         */
         modules.add(new DiscoveryModule(settings));
         modules.add(new ClusterModule(settings));
         modules.add(new RestModule(settings));

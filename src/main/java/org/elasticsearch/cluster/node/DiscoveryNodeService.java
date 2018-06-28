@@ -39,11 +39,16 @@ public class DiscoveryNodeService extends AbstractComponent {
         super(settings);
     }
 
+    /*
+        添加用户自定义的  属性
+     */
     public DiscoveryNodeService addCustomAttributeProvider(CustomAttributesProvider customAttributesProvider) {
         customAttributesProviders.add(customAttributesProvider);
         return this;
     }
-
+    /*
+        node.data  node.client      如果是client，则设置 node.data=false
+         */
     public Map<String, String> buildAttributes() {
         Map<String, String> attributes = Maps.newHashMap(settings.getByPrefix("node.").getAsMap());
         attributes.remove("name"); // name is extracted in other places

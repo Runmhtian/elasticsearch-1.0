@@ -41,7 +41,7 @@ public class DiscoveryService extends AbstractLifecycleComponent<DiscoveryServic
 
     private final Discovery discovery;
 
-    private volatile boolean initialStateReceived;
+    private volatile boolean initialStateReceived;    //  可能多线程  操作initialStateReceived？
 
     @Inject
     public DiscoveryService(Settings settings, Discovery discovery) {
@@ -61,11 +61,11 @@ public class DiscoveryService extends AbstractLifecycleComponent<DiscoveryServic
         };
         discovery.addListener(listener);
         try {
-            discovery.start();
+            discovery.start();  //  start 方法中应该  调用了initialStateProcessed 来latch.countDown()  并且应该是线程启动  ，可以直接向下运行代码
             if (initialStateTimeout.millis() > 0) {
                 try {
                     logger.trace("waiting for {} for the initial state to be set by the discovery", initialStateTimeout);
-                    if (latch.await(initialStateTimeout.millis(), TimeUnit.MILLISECONDS)) {
+                    if (latch.await(initialStateTimeout.millis(), TimeUnit.MILLISECONDS)) {  //  等待 初始化状态  的时长
                         logger.trace("initial state set from discovery");
                         initialStateReceived = true;
                     } else {
