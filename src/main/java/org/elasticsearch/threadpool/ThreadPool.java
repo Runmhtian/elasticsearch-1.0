@@ -121,9 +121,11 @@ public class ThreadPool extends AbstractComponent {
                 .build();
 
         Map<String, ExecutorHolder> executors = Maps.newHashMap();
+        //初始化executor的配置，在ExecutorHolder中   executors中的key是Names对象中的属性，代表executor类型
         for (Map.Entry<String, Settings> executor : defaultExecutorTypeSettings.entrySet()) {
             executors.put(executor.getKey(), build(executor.getKey(), groupSettings.get(executor.getKey()), executor.getValue()));
         }
+        //sameThreadExecutor   不使用并发，同步运行多线程代码  ，也是executor的实现类，   实现了统一接口
         executors.put(Names.SAME, new ExecutorHolder(MoreExecutors.sameThreadExecutor(), new Info(Names.SAME, "same")));
         if (!executors.get(Names.GENERIC).info.getType().equals("cached")) {
             throw new ElasticsearchIllegalArgumentException("generic thread pool must be of type cached");
@@ -266,7 +268,7 @@ public class ThreadPool extends AbstractComponent {
     private ExecutorHolder build(String name, @Nullable Settings settings, Settings defaultSettings) {
         return rebuild(name, null, settings, defaultSettings);
     }
-
+    // previousExecutorHolder  中的info  包含以前的执行器 设置信息
     private ExecutorHolder rebuild(String name, ExecutorHolder previousExecutorHolder, @Nullable Settings settings, Settings defaultSettings) {
         if (Names.SAME.equals(name)) {
             // Don't allow to change the "same" thread executor
@@ -276,7 +278,15 @@ public class ThreadPool extends AbstractComponent {
             settings = ImmutableSettings.Builder.EMPTY_SETTINGS;
         }
         Info previousInfo = previousExecutorHolder != null ? previousExecutorHolder.info : null;
+        /*
+            settings.get("type"  先从配置文件中获取  配置的type   这里的setting是groupSettings下的   threadpool.?.type
+            例如 threadpool.search.type
+
+            若是没有配置  在使用 previousInfo.getType()
+            最后使用defaultSettings.get("type")
+         */
         String type = settings.get("type", previousInfo != null ? previousInfo.getType() : defaultSettings.get("type"));
+        //threadFactory  设置了  线程组  线程名称
         ThreadFactory threadFactory = EsExecutors.daemonThreadFactory(this.settings, name);
         if ("same".equals(type)) {
             if (previousExecutorHolder != null) {
@@ -307,6 +317,7 @@ public class ThreadPool extends AbstractComponent {
             } else {
                 logger.debug("creating thread_pool [{}], type [{}], keep_alive [{}]", name, type, keepAlive);
             }
+            //EsThreadPoolExecutor
             Executor executor = EsExecutors.newCached(keepAlive.millis(), TimeUnit.MILLISECONDS, threadFactory);
             return new ExecutorHolder(executor, new Info(name, type, -1, -1, keepAlive, null));
         } else if ("fixed".equals(type)) {
@@ -336,6 +347,7 @@ public class ThreadPool extends AbstractComponent {
             int size = settings.getAsInt("size", defaultSize);
             SizeValue queueSize = settings.getAsSize("capacity", settings.getAsSize("queue", settings.getAsSize("queue_size", defaultQueueSize)));
             logger.debug("creating thread_pool [{}], type [{}], size [{}], queue_size [{}]", name, type, size, queueSize);
+            // EsThreadPoolExecutor  添加了线程池size  和队列大小的配置
             Executor executor = EsExecutors.newFixed(size, queueSize == null ? -1 : (int) queueSize.singles(), threadFactory);
             return new ExecutorHolder(executor, new Info(name, type, size, size, null, queueSize));
         } else if ("scaling".equals(type)) {
@@ -380,6 +392,7 @@ public class ThreadPool extends AbstractComponent {
             } else {
                 logger.debug("creating thread_pool [{}], type [{}], min [{}], size [{}], keep_alive [{}]", name, type, min, size, keepAlive);
             }
+            //与fixed  相比  有了min  min的值是核心线程数
             Executor executor = EsExecutors.newScaling(min, size, keepAlive.millis(), TimeUnit.MILLISECONDS, threadFactory);
             return new ExecutorHolder(executor, new Info(name, type, min, size, keepAlive, null));
         }

@@ -29,6 +29,8 @@ import java.io.IOException;
 import java.io.Serializable;
 
 /**
+ * 分片状态
+ *
  * Shard routing represents the state of a shard instance allocated in the cluster.
  */
 public interface ShardRouting extends Streamable, Serializable, ToXContent {

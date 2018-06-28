@@ -29,6 +29,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
+ * 节点间数据交换对象
+ *
  */
 public abstract class TransportRequest implements Streamable {
 

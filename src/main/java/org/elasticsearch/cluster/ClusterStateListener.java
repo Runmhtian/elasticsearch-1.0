@@ -22,7 +22,7 @@ package org.elasticsearch.cluster;
 /**
  * A listener to be notified when a cluster state changes.
  *
- *
+ * 需要监听集群状态变化的类  需要实现此类
  */
 public interface ClusterStateListener {
 

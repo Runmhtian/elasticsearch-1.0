@@ -84,6 +84,13 @@ public final class InternalClusterInfoService extends AbstractComponent implemen
         this.threadPool = threadPool;
         this.updateFrequency = settings.getAsTime(INTERNAL_CLUSTER_INFO_UPDATE_INTERVAL, TimeValue.timeValueSeconds(30));
         this.enabled = settings.getAsBoolean(DiskThresholdDecider.CLUSTER_ROUTING_ALLOCATION_DISK_THRESHOLD_ENABLED, false);
+        /*
+        给nodeSettingsService  添加一个监听器ApplySettings，nodeSettingsService中clusterChanged 方法时
+        调用ApplySettings  中的onRefreshSettings方法来  获取
+        INTERNAL_CLUSTER_INFO_UPDATE_INTERVAL
+        CLUSTER_ROUTING_ALLOCATION_DISK_THRESHOLD_ENABLED
+        配置
+         */
         nodeSettingsService.addListener(new ApplySettings());
 
         // Add InternalClusterInfoService to listen for Master changes
@@ -141,6 +148,7 @@ public final class InternalClusterInfoService extends AbstractComponent implemen
         this.isMaster = false;
     }
 
+    // 使用MANAGEMENT的线程池
     @Override
     public String executorName() {
         return ThreadPool.Names.MANAGEMENT;

@@ -50,7 +50,7 @@ import java.util.concurrent.BlockingQueue;
 import static org.elasticsearch.cluster.routing.ImmutableShardRouting.readShardRoutingEntry;
 
 /**
- *
+ *  向主节点发送  分片状态信息  shardRoutingEntry    ShardRouting
  */
 public class ShardStateAction extends AbstractComponent {
 
@@ -318,7 +318,7 @@ public class ShardStateAction extends AbstractComponent {
 
         private ShardRoutingEntry() {
         }
-
+        // 外部类可以访问内部类中的私有方法和属性
         private ShardRoutingEntry(ShardRouting shardRouting, String indexUUID, String reason) {
             this.shardRouting = shardRouting;
             this.reason = reason;

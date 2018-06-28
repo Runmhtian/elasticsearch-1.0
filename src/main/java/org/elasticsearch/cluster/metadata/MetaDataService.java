@@ -30,8 +30,11 @@ import java.util.concurrent.Semaphore;
  */
 public class MetaDataService extends AbstractComponent {
 
-    private final Semaphore[] indexMdLocks;
+    private final Semaphore[] indexMdLocks;   //信号量数组
 
+    /*
+    初始化500个信号量   每个信号量的许可数为1
+     */
     @Inject
     public MetaDataService(Settings settings) {
         super(settings);
@@ -41,6 +44,7 @@ public class MetaDataService extends AbstractComponent {
         }
     }
 
+    //根据index  从数组中取出一个信号量
     public Semaphore indexMetaDataLock(String index) {
         return indexMdLocks[Math.abs(DjbHashFunction.DJB_HASH(index) % indexMdLocks.length)];
     }

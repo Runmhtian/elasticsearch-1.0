@@ -30,7 +30,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public abstract class AbstractLifecycleComponent<T> extends AbstractComponent implements LifecycleComponent<T> {
 
-    protected final Lifecycle lifecycle = new Lifecycle();
+    protected final Lifecycle lifecycle = new Lifecycle();  // 组件生命周期
 
     private final List<LifecycleListener> listeners = new CopyOnWriteArrayList<LifecycleListener>();
 

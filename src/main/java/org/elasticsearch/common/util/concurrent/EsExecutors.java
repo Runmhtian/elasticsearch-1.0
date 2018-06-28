@@ -44,7 +44,11 @@ public class EsExecutors {
     public static PrioritizedEsThreadPoolExecutor newSinglePrioritizing(ThreadFactory threadFactory) {
         return new PrioritizedEsThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, threadFactory);
     }
-
+    //scaling
+    /*
+        min max 通过配置来获取    wordQueue使用ExecutorScalingQueue
+        handler（因为已达到线程边界和队列容量，新的执行被阻塞时使用的处理程序）  使用ForceQueuePolicy
+     */
     public static EsThreadPoolExecutor newScaling(int min, int max, long keepAliveTime, TimeUnit unit, ThreadFactory threadFactory) {
         ExecutorScalingQueue<Runnable> queue = new ExecutorScalingQueue<Runnable>();
         // we force the execution, since we might run into concurrency issues in offer for ScalingBlockingQueue
@@ -52,11 +56,22 @@ public class EsExecutors {
         queue.executor = executor;
         return executor;
     }
+    //cached
+    /*
+    核心线程数为0，最大线程数为 Integer.MAX_VALUE   wordQueue使用SynchronousQueue
+    handler（因为已达到线程边界和队列容量，新的执行被阻塞时使用的处理程序）  使用EsAbortPolicy
 
+     */
     public static EsThreadPoolExecutor newCached(long keepAliveTime, TimeUnit unit, ThreadFactory threadFactory) {
         return new EsThreadPoolExecutor(0, Integer.MAX_VALUE, keepAliveTime, unit, new SynchronousQueue<Runnable>(), threadFactory, new EsAbortPolicy());
     }
 
+    //fixed
+    /*
+    核心线程数等于最大线程数   wordQueue使用newBlockingQueue或者SizeBlockingQueue
+
+    handler（因为已达到线程边界和队列容量，新的执行被阻塞时使用的处理程序）  使用EsAbortPolicy
+     */
     public static EsThreadPoolExecutor newFixed(int size, int queueCapacity, ThreadFactory threadFactory) {
         BlockingQueue<Runnable> queue;
         if (queueCapacity < 0) {
@@ -85,6 +100,7 @@ public class EsExecutors {
         return new EsThreadFactory(namePrefix);
     }
 
+    //线程工厂，用于传入到 ThreadPoolExecutor  创建线程时调用newThread
     static class EsThreadFactory implements ThreadFactory {
         final ThreadGroup group;
         final AtomicInteger threadNumber = new AtomicInteger(1);
@@ -93,6 +109,7 @@ public class EsExecutors {
         public EsThreadFactory(String namePrefix) {
             this.namePrefix = namePrefix;
             SecurityManager s = System.getSecurityManager();
+            // 获取线程组  线程组表示一个线程的集合
             group = (s != null) ? s.getThreadGroup() :
                     Thread.currentThread().getThreadGroup();
         }

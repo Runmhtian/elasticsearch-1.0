@@ -45,6 +45,9 @@ import static org.elasticsearch.common.unit.TimeValue.timeValueSeconds;
  * be performed on the clusters master node. Unless the local node this service
  * is running on is the clusters master node this service will not perform any
  * actions.
+ *
+ * 根据集群状态 更新  routing tables
+ *
  * </p>
  */
 public class RoutingService extends AbstractLifecycleComponent<RoutingService> implements ClusterStateListener {
@@ -89,33 +92,36 @@ public class RoutingService extends AbstractLifecycleComponent<RoutingService> i
         }
         clusterService.remove(this);
     }
-
+    /*
+    根据ClusterChangedEvent   来看是否需要
+     */
     @Override
     public void clusterChanged(ClusterChangedEvent event) {
         if (event.source().equals(CLUSTER_UPDATE_TASK_SOURCE)) {
             // that's us, ignore this event
             return;
         }
-        if (event.state().nodes().localNodeMaster()) {
+        if (event.state().nodes().localNodeMaster()) {  //  是master 节点
             // we are master, schedule the routing table updater
             if (scheduledRoutingTableFuture == null) {
                 // a new master (us), make sure we reroute shards
                 routingTableDirty = true;
+                // 按照固定间隔执行  RoutingTableUpdater
                 scheduledRoutingTableFuture = threadPool.scheduleWithFixedDelay(new RoutingTableUpdater(), schedule);
             }
-            if (event.nodesRemoved()) {
+            if (event.nodesRemoved()) { // 节点移除event
                 // if nodes were removed, we don't want to wait for the scheduled task
                 // since we want to get primary election as fast as possible
                 routingTableDirty = true;
-                reroute();
+                reroute();  // 重新分配路由
                 // Commented out since we make sure to reroute whenever shards changes state or metadata changes state
 //            } else if (event.routingTableChanged()) {
 //                routingTableDirty = true;
 //                reroute();
             } else {
-                if (event.nodesAdded()) {
+                if (event.nodesAdded()) { // 节点添加event
                     for (DiscoveryNode node : event.nodesDelta().addedNodes()) {
-                        if (node.dataNode()) {
+                        if (node.dataNode()) {  // 添加的节点中有数据节点  routingTableDirty = true
                             routingTableDirty = true;
                             break;
                         }
@@ -132,12 +138,13 @@ public class RoutingService extends AbstractLifecycleComponent<RoutingService> i
 
     private void reroute() {
         try {
-            if (!routingTableDirty) {
+            if (!routingTableDirty) {  // 不是脏 路由表
                 return;
             }
-            if (lifecycle.stopped()) {
+            if (lifecycle.stopped()) {  // 组件生命周期 结束
                 return;
             }
+            //Submits a task that will update the cluster state.
             clusterService.submitStateUpdateTask(CLUSTER_UPDATE_TASK_SOURCE, Priority.HIGH, new ClusterStateUpdateTask() {
                 @Override
                 public ClusterState execute(ClusterState currentState) {
