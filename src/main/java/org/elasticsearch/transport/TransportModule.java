@@ -45,7 +45,7 @@ public class TransportModule extends AbstractModule implements SpawnModules {
     @Override
     public Iterable<? extends Module> spawnModules() {
         Class<? extends Module> defaultTransportModule;
-        if (DiscoveryNode.localNode(settings)) {
+        if (DiscoveryNode.localNode(settings)) {  //本地模式
             defaultTransportModule = LocalTransportModule.class;
         } else {
             defaultTransportModule = NettyTransportModule.class;

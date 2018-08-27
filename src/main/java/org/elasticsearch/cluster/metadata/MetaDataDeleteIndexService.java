@@ -159,6 +159,7 @@ public class MetaDataDeleteIndexService extends AbstractComponent {
                         }
                     }
                 };
+                //往  nodeIndexDeletedAction  添加listener
                 nodeIndexDeletedAction.add(nodeIndexDeleteListener);
 
                 listener.future = threadPool.schedule(request.timeout, ThreadPool.Names.SAME, new Runnable() {

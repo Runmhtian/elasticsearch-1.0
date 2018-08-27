@@ -23,6 +23,6 @@ package org.elasticsearch.rest;
  *
  */
 public interface RestHandler {
-
+    //request 请求  channel 请求结果
     void handleRequest(RestRequest request, RestChannel channel);
 }

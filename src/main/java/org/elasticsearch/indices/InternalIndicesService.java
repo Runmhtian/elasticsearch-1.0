@@ -255,7 +255,11 @@ public class InternalIndicesService extends AbstractLifecycleComponent<IndicesSe
         }
         return indexService;
     }
+    /*
+    创建索引   synchronized
 
+
+     */
     public synchronized IndexService createIndex(String sIndexName, Settings settings, String localNodeId) throws ElasticsearchException {
         if (!lifecycle.started()) {
             throw new ElasticsearchIllegalStateException("Can't create an index [" + sIndexName + "], node is closed");

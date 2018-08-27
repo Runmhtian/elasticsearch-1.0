@@ -73,7 +73,7 @@ public class ClusterModule extends AbstractModule implements SpawnModules {
         bind(MetaDataDeleteIndexService.class).asEagerSingleton();
         //Service responsible for submitting open/close index requests
         bind(MetaDataIndexStateService.class).asEagerSingleton();
-        // mapping 请求
+        // mapping
         bind(MetaDataMappingService.class).asEagerSingleton();
         // 索引别名
         bind(MetaDataIndexAliasesService.class).asEagerSingleton();
@@ -97,5 +97,15 @@ public class ClusterModule extends AbstractModule implements SpawnModules {
         // 监听数据节点数量  一旦有变化  产生一个ClusterInfoUpdateJob
         // 主节点在运行，当其他节点成为主节点时  通过onMaster方法是  isMaster属性为true
         bind(ClusterInfoService.class).to(InternalClusterInfoService.class).asEagerSingleton();
+
+
+
+        /*
+        MappingUpdatedAction 与NodeMappingRefreshAction  调用了metaDataMappingService
+
+       而MetaDataDeleteIndexService则是  在其中调用  nodeIndexDeletedAction
+
+
+         */
     }
 }

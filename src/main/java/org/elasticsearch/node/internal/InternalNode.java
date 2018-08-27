@@ -175,8 +175,15 @@ public final class InternalNode implements Node {
         Recycler的主要功能是，通过队列使的这些map对象可以回收并新利用   NoneRecycler  没有重用机制
 
         可选择的在Recycler 外层又包了一层  引用方式   threadLocal cocurrent    softreference
+
+        避免多个地方使用集合需要进行多次初始化来申请内存。并且减少垃圾回收。
          */
         modules.add(new CacheRecyclerModule(settings));
+        /*
+        初始化了多个Recycler，Recycler中封装了各中数据，byte[]，int[]，long[]，double[]，Object[]，同样使用重用机制，
+        并且加入了threadLocal，cocurrent，softreference，根据配置，Recycler可以有不同的策略。避免多个地方使用集合需要进行多次初始化来申请内存。并且减少垃圾回收。
+         */
+
         modules.add(new PageCacheRecyclerModule(settings));
         // 将实例pluginsService  绑定到 PluginsService.class
         modules.add(new PluginsModule(settings, pluginsService));
@@ -240,24 +247,47 @@ public final class InternalNode implements Node {
         DiscoveryService  参数注入 Discovery
          */
         modules.add(new DiscoveryModule(settings));
+        // 集群相关service
         modules.add(new ClusterModule(settings));
+        // restcontroller    RestActionModule   定义了restful  api
         modules.add(new RestModule(settings));
+
+        //节点通信模块
         modules.add(new TransportModule(settings));
+        //跟transport类似，使用http进行通信。
         if (settings.getAsBoolean("http.enabled", true)) {
             modules.add(new HttpServerModule(settings));
         }
+        //es的river服务，用于同步其他数据源的数据到es，用户可以自定义river，通过RiversModule进行注册。我们看一下river接口。
         modules.add(new RiversModule(settings));
+        //索引模块，初始化索引相关服务，如IndicesClusterStateService，IndicesTermsFilterCache，IndicesFieldDataCache，IndicesStore，IndexingMemoryController等。
+        //
         modules.add(new IndicesModule(settings));
+        //查询模块，初始化查询相关的服务
         modules.add(new SearchModule());
+        //elasticsearch中的绝大部分操作都是通过相应的action，这些action在action包中。
         modules.add(new ActionModule(false));
+        //es的各种监控服务，比如network，jvm，fs等。
         modules.add(new MonitorModule(settings));
+        //gateway 模块负责当集群 full restart 时的元信息(state)数据恢复.  http://www.easyice.cn/archives/226
         modules.add(new GatewayModule(settings));
+        //es客户端模块。
         modules.add(new NodeClientModule());
+        //udp bulk  The Bulk UDP services has been removed. Use the standard Bulk API instead.   version 6.3
         modules.add(new BulkUdpModule());
+        // ShapeFetchService  从index type id 解析出shape
         modules.add(new ShapeModule());
+
+        //es的普通查询是通过某些条件来查询满足的文档，percolator则不同，先是注册一些条件，然后查询一条文档是否满足其中的某些条件。
+
+//        es的percolator特性在数据分类、数据路由、事件监控和预警方面都有很好的应用。
+// https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-percolate-query.html#_sample_usage
         modules.add(new PercolatorModule());
+        //资源监控模块，其他es服务需要监控的信息可以注册到资源监控服务。ResourceWatcherService定期的回去这些注册的类中的接口方法，默认间隔60s。
         modules.add(new ResourceWatcherModule());
+        //Snapshot repository模块。负责索引或者集群级别的操作，仅仅能够在master上调用。
         modules.add(new RepositoriesModule());
+        //https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-tribe.html   在5.4.0中弃用
         modules.add(new TribeModule());
 
         injector = modules.createInjector();

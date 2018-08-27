@@ -87,6 +87,8 @@ import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.new
 import static org.elasticsearch.common.util.concurrent.EsExecutors.daemonThreadFactory;
 
 /**
+ * 节点通信模块，每个节点四种类型连接，low/med/high/ping，low用来处理高负载的api
+ * ，比如批处理，med用来处理查询或者索引单个文档，high用来集群状态，ping用来节点跟其他几点间发送ping请求。
  * There are 4 types of connections per node, low/med/high/ping. Low if for batch oriented APIs (like recovery or
  * batch) with high payload that will cause regular request. (like search or single index) to take
  * longer. Med is for the typical search / single doc index. And High for things like cluster state. Ping is reserved for

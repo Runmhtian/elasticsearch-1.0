@@ -25,7 +25,7 @@ import org.elasticsearch.common.io.stream.StreamOutput;
 import java.io.IOException;
 
 /**
- *
+ * address 对象
  */
 public class LocalTransportAddress implements TransportAddress {
 

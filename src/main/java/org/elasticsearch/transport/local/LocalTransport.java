@@ -45,7 +45,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.newConcurrentMap;
 
 /**
- *
+ *  本地
  */
 public class LocalTransport extends AbstractLifecycleComponent<Transport> implements Transport {
 

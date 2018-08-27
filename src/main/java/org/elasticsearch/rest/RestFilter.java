@@ -43,6 +43,8 @@ public abstract class RestFilter implements CloseableComponent {
     /**
      * Process the rest request. Using the channel to send a response, or the filter chain to continue
      * processing the request.
+     *
+     * RestFilterChain  用于 handler前处理
      */
     public abstract void process(RestRequest request, RestChannel channel, RestFilterChain filterChain);
 }

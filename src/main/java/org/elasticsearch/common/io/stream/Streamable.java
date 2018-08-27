@@ -22,7 +22,7 @@ package org.elasticsearch.common.io.stream;
 import java.io.IOException;
 
 /**
- *
+ *  可以进行写入stream  和读 stream
  */
 public interface Streamable {
 

@@ -75,6 +75,8 @@ public class RestController extends AbstractLifecycleComponent<RestController> {
 
     /**
      * Registers a pre processor to be executed before the rest request is actually handled.
+     *
+     * 在请求被处理前  添加一个处理过程
      */
     public synchronized void registerFilter(RestFilter preProcessor) {
         RestFilter[] copy = new RestFilter[filters.length + 1];
@@ -91,6 +93,9 @@ public class RestController extends AbstractLifecycleComponent<RestController> {
 
     /**
      * Registers a rest handler to be execute when the provided method and path match the request.
+     *
+     *
+     * path  restful 的请求路径   method   两者确定了  一个请求   handler  处理这个请求
      */
     public void registerHandler(RestRequest.Method method, String path, RestHandler handler) {
         switch (method) {
@@ -136,6 +141,8 @@ public class RestController extends AbstractLifecycleComponent<RestController> {
         return new ControllerFilterChain(executionFilter);
     }
 
+
+    // 调度 请求
     public void dispatchRequest(final RestRequest request, final RestChannel channel) {
         if (filters.length == 0) {
             try {
@@ -168,6 +175,7 @@ public class RestController extends AbstractLifecycleComponent<RestController> {
         }
     }
 
+    // 根据请求  获取handler
     private RestHandler getHandler(RestRequest request) {
         String path = getPath(request);
         RestRequest.Method method = request.method();
