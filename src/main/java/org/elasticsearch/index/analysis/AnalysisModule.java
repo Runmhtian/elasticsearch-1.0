@@ -37,7 +37,8 @@ import java.util.LinkedList;
 import java.util.Map;
 
 /**
- *
+ * 从文档中提取出若干Token(词元)， 这些算法称为Tokenizer(分词器)；
+ * 这些Token会被进一步处理， 比如转成小写等， 这些处理算法被称为Token Filter(词元处理器),
  */
 public class AnalysisModule extends AbstractModule {
 

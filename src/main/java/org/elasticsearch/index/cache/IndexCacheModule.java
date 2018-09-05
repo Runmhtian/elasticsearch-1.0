@@ -39,11 +39,16 @@ public class IndexCacheModule extends AbstractModule {
 
     @Override
     protected void configure() {
+        //在lucene 的filter 上添加cache  这里是 过滤查询的缓存实现？  key为FilterCacheKey 包含 indexReader 和 Filter 对象
         new FilterCacheModule(settings).configure(binder());
+        //使用父子文档时 id cache，simple实现  ConcurrentMap<Object, SimpleIdReaderCache>， cache的数据实际上是在 SimpleIdReaderTypeCache中
         new IdCacheModule(settings).configure(binder());
+        //查询解析缓存，避免在不同的分片上解析相同的查询  使用的是guava的Cache  key为查询string，value是Query对象
         new QueryParserCacheModule(settings).configure(binder());
+        //ContextDocIdSet缓存   避免多次new FixedBitSet   也就是FixedBitSet重用  位数组   缓存key是  indexReader
         new DocSetCacheModule(settings).configure(binder());
 
+        // 将以上几个cache 包含在此类中
         bind(IndexCache.class).asEagerSingleton();
     }
 }

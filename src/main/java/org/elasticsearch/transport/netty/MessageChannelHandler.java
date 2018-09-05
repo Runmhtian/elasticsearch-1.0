@@ -105,7 +105,7 @@ public class MessageChannelHandler extends SimpleChannelUpstreamHandler {
         }
         wrappedStream.setVersion(version);
 
-        if (TransportStatus.isRequest(status)) {
+        if (TransportStatus.isRequest(status)) {  // 判断是否是request
             String action = handleRequest(ctx.getChannel(), wrappedStream, requestId, version);
             if (buffer.readerIndex() != expectedIndexReader) {
                 if (buffer.readerIndex() < expectedIndexReader) {
@@ -115,7 +115,7 @@ public class MessageChannelHandler extends SimpleChannelUpstreamHandler {
                 }
                 buffer.readerIndex(expectedIndexReader);
             }
-        } else {
+        } else {  // 是response
             TransportResponseHandler handler = transportServiceAdapter.remove(requestId);
             // ignore if its null, the adapter logs it
             if (handler != null) {
@@ -197,7 +197,7 @@ public class MessageChannelHandler extends SimpleChannelUpstreamHandler {
     }
 
     private String handleRequest(Channel channel, StreamInput buffer, long requestId, Version version) throws IOException {
-        final String action = buffer.readString();
+        final String action = buffer.readString(); //从buffer中前几个字节中  得到action信息
 
         final NettyTransportChannel transportChannel = new NettyTransportChannel(transport, action, channel, requestId, version);
         try {

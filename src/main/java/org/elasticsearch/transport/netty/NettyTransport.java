@@ -143,26 +143,29 @@ public class NettyTransport extends AbstractLifecycleComponent<Transport> implem
 
     private final ThreadPool threadPool;
 
-    private volatile OpenChannelsHandler serverOpenChannels;
+    private volatile OpenChannelsHandler serverOpenChannels;//服务端第一个handler
 
-    private volatile ClientBootstrap clientBootstrap;
+    private volatile ClientBootstrap clientBootstrap; //客户端启动
 
-    private volatile ServerBootstrap serverBootstrap;
+    private volatile ServerBootstrap serverBootstrap; // 服务端启动
 
-    // node id to actual channel
+    // node id to actual channel   维护了node和对应的channel
     final ConcurrentMap<DiscoveryNode, NodeChannels> connectedNodes = newConcurrentMap();
 
 
     private volatile Channel serverChannel;
 
+    // 通过adapter 获取handler
     private volatile TransportServiceAdapter transportServiceAdapter;
 
     private volatile BoundTransportAddress boundAddress;
 
+    // 管理node的连接锁
     private final KeyedLock<String> connectionLock = new KeyedLock<String>();
 
     // this lock is here to make sure we close this transport and disconnect all the client nodes
     // connections while no connect operations is going on... (this might help with 100% CPU when stopping the transport?)
+    //连接节点或者stop时用到
     private final ReadWriteLock globalLock = new ReentrantReadWriteLock();
 
     @Inject
@@ -259,7 +262,7 @@ public class NettyTransport extends AbstractLifecycleComponent<Transport> implem
                     new NioWorkerPool(Executors.newCachedThreadPool(daemonThreadFactory(settings, "transport_client_worker")), workerCount),
                     new HashedWheelTimer(daemonThreadFactory(settings, "transport_client_timer"))));
         }
-        ChannelPipelineFactory clientPipelineFactory = new ChannelPipelineFactory() {
+        ChannelPipelineFactory clientPipelineFactory = new ChannelPipelineFactory() {   //client
             @Override
             public ChannelPipeline getPipeline() throws Exception {
                 ChannelPipeline pipeline = Channels.pipeline();
@@ -316,7 +319,7 @@ public class NettyTransport extends AbstractLifecycleComponent<Transport> implem
         }
         ChannelPipelineFactory serverPipelineFactory = new ChannelPipelineFactory() {
             @Override
-            public ChannelPipeline getPipeline() throws Exception {
+            public ChannelPipeline getPipeline() throws Exception {  //server
                 ChannelPipeline pipeline = Channels.pipeline();
                 pipeline.addLast("openChannels", serverOpenChannels);
                 SizeHeaderFrameDecoder sizeHeader = new SizeHeaderFrameDecoder();
@@ -539,6 +542,8 @@ public class NettyTransport extends AbstractLifecycleComponent<Transport> implem
 
     @Override
     public void sendRequest(final DiscoveryNode node, final long requestId, final String action, final TransportRequest request, TransportRequestOptions options) throws IOException, TransportException {
+
+        //在发送请求是  需要根据node  来获取  channel
         Channel targetChannel = nodeChannel(node, options);
 
         if (compress) {
@@ -617,6 +622,7 @@ public class NettyTransport extends AbstractLifecycleComponent<Transport> implem
         connectToNode(node, false);
     }
 
+    // light 轻量级  一个node 对应一个channel   否则，根据配置  初始化对应的channel数目
     public void connectToNode(DiscoveryNode node, boolean light) {
         if (!lifecycle.started()) {
             throw new ElasticsearchIllegalStateException("can't add nodes to a stopped transport");
@@ -624,7 +630,7 @@ public class NettyTransport extends AbstractLifecycleComponent<Transport> implem
         if (node == null) {
             throw new ConnectTransportException(null, "can't connect to a null node");
         }
-        globalLock.readLock().lock();
+        globalLock.readLock().lock();  //获取读锁  在 stop中使用了写锁，避免stop的过程中，conectToNode
         try {
             if (!lifecycle.started()) {
                 throw new ElasticsearchIllegalStateException("can't add nodes to a stopped transport");
@@ -633,7 +639,7 @@ public class NettyTransport extends AbstractLifecycleComponent<Transport> implem
             if (nodeChannels != null) {
                 return;
             }
-            connectionLock.acquire(node.id());
+            connectionLock.acquire(node.id());// 获取node的连接 锁
             try {
                 if (!lifecycle.started()) {
                     throw new ElasticsearchIllegalStateException("can't add nodes to a stopped transport");
@@ -679,18 +685,20 @@ public class NettyTransport extends AbstractLifecycleComponent<Transport> implem
 
     private NodeChannels connectToChannelsLight(DiscoveryNode node) {
         InetSocketAddress address = ((InetSocketTransportAddress) node.address()).address();
+        // 通过clientBootstrap  链接到node
         ChannelFuture connect = clientBootstrap.connect(address);
         connect.awaitUninterruptibly((long) (connectTimeout.millis() * 1.5));
         if (!connect.isSuccess()) {
             throw new ConnectTransportException(node, "connect_timeout[" + connectTimeout + "]", connect.getCause());
         }
-        Channel[] channels = new Channel[1];
+        Channel[] channels = new Channel[1];   //一个channel
         channels[0] = connect.getChannel();
         channels[0].getCloseFuture().addListener(new ChannelCloseListener(node));
         return new NodeChannels(channels, channels, channels, channels, channels);
     }
 
     private void connectToChannels(NodeChannels nodeChannels, DiscoveryNode node) {
+        //传入一个初始化大小的NodeChannels，向数组中传channel
         ChannelFuture[] connectRecovery = new ChannelFuture[nodeChannels.recovery.length];
         ChannelFuture[] connectBulk = new ChannelFuture[nodeChannels.bulk.length];
         ChannelFuture[] connectReg = new ChannelFuture[nodeChannels.reg.length];
@@ -698,7 +706,7 @@ public class NettyTransport extends AbstractLifecycleComponent<Transport> implem
         ChannelFuture[] connectPing = new ChannelFuture[nodeChannels.ping.length];
         InetSocketAddress address = ((InetSocketTransportAddress) node.address()).address();
         for (int i = 0; i < connectRecovery.length; i++) {
-            connectRecovery[i] = clientBootstrap.connect(address);
+            connectRecovery[i] = clientBootstrap.connect(address);   //多次connect  得到多个ChannelFuture  ，使用ChannelFuture获取channels
         }
         for (int i = 0; i < connectBulk.length; i++) {
             connectBulk[i] = clientBootstrap.connect(address);
@@ -878,7 +886,7 @@ public class NettyTransport extends AbstractLifecycleComponent<Transport> implem
     }
 
     public static class NodeChannels {
-
+        // 不同的type   使用不同的channel
         private Channel[] recovery;
         private final AtomicInteger recoveryCounter = new AtomicInteger();
         private Channel[] bulk;
@@ -910,7 +918,7 @@ public class NettyTransport extends AbstractLifecycleComponent<Transport> implem
             }
             return false;
         }
-
+        //根据type去channel，轮询使用
         public Channel channel(TransportRequestOptions.Type type) {
             if (type == TransportRequestOptions.Type.REG) {
                 return reg[Math.abs(regCounter.incrementAndGet()) % reg.length];

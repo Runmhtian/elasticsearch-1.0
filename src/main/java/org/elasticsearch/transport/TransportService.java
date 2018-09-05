@@ -45,7 +45,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.elasticsearch.common.settings.ImmutableSettings.Builder.EMPTY_SETTINGS;
 
 /**
- *
+ *  主要用来注册handler  和发送请求   将发送了的请求 放在clientHandlers中
  */
 public class TransportService extends AbstractLifecycleComponent<TransportService> {
 
@@ -53,13 +53,16 @@ public class TransportService extends AbstractLifecycleComponent<TransportServic
 
     private final ThreadPool threadPool;
 
+    // 保存了action name  和对应的  RequestHandler
     volatile ImmutableMap<String, TransportRequestHandler> serverHandlers = ImmutableMap.of();
     final Object serverHandlersMutex = new Object();
 
+    // requestId  和requestHolder的映射   在处理response时使用
     final ConcurrentMapLong<RequestHolder> clientHandlers = ConcurrentCollections.newConcurrentMapLongWithAggressiveConcurrency();
 
-    final AtomicLong requestIds = new AtomicLong();
+    final AtomicLong requestIds = new AtomicLong();  // 原子的requestID
 
+    //监听器
     final CopyOnWriteArrayList<TransportConnectionListener> connectionListeners = new CopyOnWriteArrayList<TransportConnectionListener>();
 
     // An LRU (don't really care about concurrency here) that holds the latest timed out requests so if they
@@ -88,7 +91,7 @@ public class TransportService extends AbstractLifecycleComponent<TransportServic
     protected void doStart() throws ElasticsearchException {
         adapter.rxMetric.clear();
         adapter.txMetric.clear();
-        transport.transportServiceAdapter(adapter);
+        transport.transportServiceAdapter(adapter);  //  将adapter  传入  transport中  ，集群环境是 nettyTransport
         transport.start();
         if (transport.boundAddress() != null && logger.isInfoEnabled()) {
             logger.info("{}", transport.boundAddress());
@@ -173,14 +176,16 @@ public class TransportService extends AbstractLifecycleComponent<TransportServic
         sendRequest(node, action, request, TransportRequestOptions.EMPTY, handler);
     }
 
+    //sendRequest  时  传递对应的 TransportResponseHandler
     public <T extends TransportResponse> void sendRequest(final DiscoveryNode node, final String action, final TransportRequest request,
                                                           final TransportRequestOptions options, TransportResponseHandler<T> handler) throws TransportException {
         if (node == null) {
             throw new ElasticsearchIllegalStateException("can't send request to a null node");
         }
-        final long requestId = newRequestId();
+        final long requestId = newRequestId();  //通过原子类生成一个唯一的requestID
         TimeoutHandler timeoutHandler = null;
         try {
+            //若是设置了超时时间
             if (options.timeout() != null) {
                 timeoutHandler = new TimeoutHandler(requestId);
                 timeoutHandler.future = threadPool.schedule(options.timeout(), ThreadPool.Names.GENERIC, timeoutHandler);
