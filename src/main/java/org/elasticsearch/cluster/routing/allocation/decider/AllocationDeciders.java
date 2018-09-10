@@ -28,6 +28,7 @@ import org.elasticsearch.common.settings.Settings;
 import java.util.Set;
 
 /**
+ * 分配器  可能多个
  * A composite {@link AllocationDecider} combining the "decision" of multiple
  * {@link AllocationDecider} implementations into a single allocation decision.
  */

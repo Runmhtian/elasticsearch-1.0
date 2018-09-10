@@ -37,6 +37,14 @@ import org.elasticsearch.transport.TransportService;
 
 /**
  * Create index action.
+ *
+ * 创建索引，从这里开始
+ * 在父类构造方法中  transportService.registerHandler(transportAction, new TransportHandler());  // 这里注册了  handler
+ * super(settings, transportService, clusterService, threadPool);
+ * 1.tranport 接收到创建索引请求后，调用Handler中的messageReceived方法，最终会调用继承到的innerExecute方法
+ * 2.innerExecute方法调用实现的masterOperation方法
+ * 3.MetaDataCreateIndexService.createIndex
+ *
  */
 public class TransportCreateIndexAction extends TransportMasterNodeOperationAction<CreateIndexRequest, CreateIndexResponse> {
 
@@ -74,14 +82,22 @@ public class TransportCreateIndexAction extends TransportMasterNodeOperationActi
     protected ClusterBlockException checkBlock(CreateIndexRequest request, ClusterState state) {
         return state.blocks().indexBlockedException(ClusterBlockLevel.METADATA, request.index());
     }
-
+    //实现父类方法，创建索引，不同的master操作在此实现逻辑
     @Override
     protected void masterOperation(final CreateIndexRequest request, final ClusterState state, final ActionListener<CreateIndexResponse> listener) throws ElasticsearchException {
         String cause = request.cause();
         if (cause.length() == 0) {
             cause = "api";
         }
-
+        // 实例CreateIndexClusterStateUpdateRequest对象，封装了索引相关
+        /*
+        timeout
+        index
+        masterNodeTimeout
+        settings
+        mappings
+        customs  创建索引中自定义的东西？？
+         */
         CreateIndexClusterStateUpdateRequest updateRequest = new CreateIndexClusterStateUpdateRequest(cause, request.index())
                 .ackTimeout(request.timeout()).masterNodeTimeout(request.masterNodeTimeout())
                 .settings(request.settings()).mappings(request.mappings())

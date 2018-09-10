@@ -41,6 +41,7 @@ import java.util.Set;
 import static com.google.common.collect.Lists.newArrayList;
 
 /**
+ * 包含了单个索引的 路由信息
  * The {@link IndexRoutingTable} represents routing information for a single
  * index. The routing table maintains a list of all shards in the index. A
  * single shard in this context has one more instances namely exactly one
@@ -417,10 +418,14 @@ public class IndexRoutingTable implements Iterable<IndexShardRoutingTable> {
                 throw new ElasticsearchIllegalStateException("trying to initialize an index with fresh shards, but already has shards created");
             }
             for (int shardId = 0; shardId < indexMetaData.numberOfShards(); shardId++) {
+                //分片 builder
                 IndexShardRoutingTable.Builder indexShardRoutingBuilder = new IndexShardRoutingTable.Builder(new ShardId(indexMetaData.index(), shardId), asNew ? false : true);
+                //备份是3  这里是  0 1 2 3 0是主分片
                 for (int i = 0; i <= indexMetaData.numberOfReplicas(); i++) {
+                    //都是ShardRoutingState.UNASSIGNED状态
                     indexShardRoutingBuilder.addShard(new ImmutableShardRouting(index, shardId, null, i == 0, ShardRoutingState.UNASSIGNED, 0));
                 }
+                //维护了分片 和IndexShardRoutingTable
                 shards.put(shardId, indexShardRoutingBuilder.build());
             }
             return this;

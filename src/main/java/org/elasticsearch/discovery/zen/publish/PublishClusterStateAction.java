@@ -121,7 +121,7 @@ public class PublishClusterStateAction extends AbstractComponent {
                         new EmptyTransportResponseHandler(ThreadPool.Names.SAME) {
 
                             @Override
-                            public void handleResponse(TransportResponse.Empty response) {
+                            public void handleResponse(TransportResponse.Empty response) {  //empty响应  只要收到响应就说明成功了  ack了，否则无响应
                                 publishResponseHandler.onResponse(node);
                             }
 

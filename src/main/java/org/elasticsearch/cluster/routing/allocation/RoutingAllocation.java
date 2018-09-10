@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
+ * 保存所有的当前分配状态  持有分配器
  * The {@link RoutingAllocation} keep the state of the current allocation
  * of shards and holds the {@link AllocationDeciders} which are responsible
  *  for the current routing state.
@@ -41,7 +42,8 @@ import java.util.Set;
 public class RoutingAllocation {
 
     /**
-     * this class is used to describe results of a {@link RoutingAllocation}  
+     * this class is used to describe results of a {@link RoutingAllocation}
+     * 分配结果
      */
     public static class Result {
 
@@ -113,8 +115,8 @@ public class RoutingAllocation {
      */
     public RoutingAllocation(AllocationDeciders deciders, RoutingNodes routingNodes, DiscoveryNodes nodes, ClusterInfo clusterInfo) {
         this.deciders = deciders;
-        this.routingNodes = routingNodes;
-        this.nodes = nodes;
+        this.routingNodes = routingNodes;   // 路由节点信息
+        this.nodes = nodes;  // 所有能够发现的节点
         this.clusterInfo = clusterInfo;
     }
 

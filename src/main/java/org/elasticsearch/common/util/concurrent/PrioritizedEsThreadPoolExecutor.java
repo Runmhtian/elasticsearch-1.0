@@ -25,6 +25,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
+ * 优先级线程池
  * A prioritizing executor which uses a priority queue as a work queue. The jobs that will be submitted will be treated
  * as {@link PrioritizedRunnable} and/or {@link PrioritizedCallable}, those tasks that are not instances of these two will
  * be wrapped and assign a default {@link Priority#NORMAL} priority.
@@ -64,6 +65,7 @@ public class PrioritizedEsThreadPoolExecutor extends EsThreadPoolExecutor {
         super.execute(command);
         if (timeout.nanos() >= 0) {
             final Runnable fCommand = command;
+//           等待一段时间  去看线程池的阻塞队列里 是否还有这个command，若是有，则表明超时   调用回调函数
             timer.schedule(new Runnable() {
                 @Override
                 public void run() {

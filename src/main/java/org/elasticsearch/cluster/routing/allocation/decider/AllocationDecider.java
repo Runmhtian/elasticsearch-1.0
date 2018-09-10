@@ -29,6 +29,11 @@ import org.elasticsearch.common.settings.Settings;
  * {@link AllocationDecider} is an abstract base class that allows to make
  * dynamic cluster- or index-wide shard allocation decisions on a per-node
  * basis.
+ *
+ * 子类实现
+ * 决定分片是否能够分配到节点上
+ * 多个决策者  跟投票一样
+ *
  */
 public abstract class AllocationDecider extends AbstractComponent {
 

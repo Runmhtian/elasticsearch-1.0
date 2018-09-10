@@ -28,6 +28,8 @@ import org.elasticsearch.index.shard.ShardId;
 import org.elasticsearch.index.shard.service.IndexShard;
 
 /**
+ *
+ * 将listener   注册到节点生命周期中
  * A global component allowing to register for lifecycle of an index (create/closed) and
  * an index shard (created/closed).
  */

@@ -38,6 +38,10 @@ import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Maps.newHashMap;
 
 /**
+ * RoutingTable  包含了IndexRoutingTable
+ * IndexRoutingTable 包含了 IndexShardRoutingTable
+ * IndexShardRoutingTable  包含 ShardRouting   表示在群集中分配的分片实例的状态。
+ *
  * Represents a global cluster-wide routing table for all indices including the
  * version of the current routing state.
  *
@@ -363,7 +367,7 @@ public class RoutingTable implements Iterable<IndexRoutingTable> {
             }
             return this;
         }
-
+        // 添加新的 index信息到 routingTable中
         public Builder addAsNew(IndexMetaData indexMetaData) {
             if (indexMetaData.state() == IndexMetaData.State.OPEN) {
                 IndexRoutingTable.Builder indexRoutingBuilder = new IndexRoutingTable.Builder(indexMetaData.index())

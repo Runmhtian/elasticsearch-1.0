@@ -48,7 +48,7 @@ public class CreateIndexClusterStateUpdateRequest extends ClusterStateUpdateRequ
 
     private Map<String, IndexMetaData.Custom> customs = newHashMap();
 
-    private Set<ClusterBlock> blocks = Sets.newHashSet();
+    private Set<ClusterBlock> blocks = Sets.newHashSet();// 索引操作限制 read write metadata
 
 
     CreateIndexClusterStateUpdateRequest(String cause, String index) {

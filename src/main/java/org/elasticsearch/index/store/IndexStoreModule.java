@@ -44,6 +44,8 @@ public class IndexStoreModule extends AbstractModule implements SpawnModules {
         this.settings = settings;
     }
 
+    //根据系统和配置，选择  不同的module
+
     @Override
     public Iterable<? extends Module> spawnModules() {
         Class<? extends Module> indexStoreModule = NioFsIndexStoreModule.class;
@@ -70,6 +72,7 @@ public class IndexStoreModule extends AbstractModule implements SpawnModules {
         } else if (storeType != null) {
             indexStoreModule = settings.getAsClass("index.store.type", indexStoreModule, "org.elasticsearch.index.store.", "IndexStoreModule");
         }
+
         return ImmutableList.of(Modules.createModule(indexStoreModule, settings));
     }
 

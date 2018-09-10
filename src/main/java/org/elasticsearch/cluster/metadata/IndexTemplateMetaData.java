@@ -38,7 +38,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- *
+ * 索引模板
  */
 public class IndexTemplateMetaData {
 

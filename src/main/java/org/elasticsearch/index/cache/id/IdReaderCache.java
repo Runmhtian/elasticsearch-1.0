@@ -25,7 +25,7 @@ import org.elasticsearch.common.bytes.HashedBytesArray;
  */
 public interface IdReaderCache {
 
-    IdReaderTypeCache type(String type);
+    IdReaderTypeCache type(String type);// type 是索引类型？  根据索引类型来  cache
 
     HashedBytesArray parentIdByDoc(String type, int docId);
 

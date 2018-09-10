@@ -236,7 +236,7 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
         }
         try {
             final UpdateTask task = new UpdateTask(source, priority, updateTask);
-            if (updateTask instanceof TimeoutClusterStateUpdateTask) {
+            if (updateTask instanceof TimeoutClusterStateUpdateTask) {  //有timeout的task
                 final TimeoutClusterStateUpdateTask timeoutUpdateTask = (TimeoutClusterStateUpdateTask) updateTask;
                 updateTasksExecutor.execute(task, threadPool.scheduler(), timeoutUpdateTask.timeout(), new Runnable() {
                     @Override
@@ -305,7 +305,7 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
             ClusterState previousClusterState = clusterState;
             ClusterState newClusterState;
             try {
-                newClusterState = updateTask.execute(previousClusterState);
+                newClusterState = updateTask.execute(previousClusterState);  // 执行创建索引的过程  得到新的集群状态
             } catch (Throwable e) {
                 if (logger.isTraceEnabled()) {
                     StringBuilder sb = new StringBuilder("failed to execute cluster state update, state:\nversion [").append(previousClusterState.version()).append("], source [").append(source).append("]\n");
@@ -318,9 +318,9 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
                 return;
             }
 
-            if (previousClusterState == newClusterState) {
+            if (previousClusterState == newClusterState) {  // 状态没有变化？？ 返回
                 logger.debug("processing [{}]: no change in cluster_state", source);
-                if (updateTask instanceof AckedClusterStateUpdateTask) {
+                if (updateTask instanceof AckedClusterStateUpdateTask) { //没有变化不需要ack
                     //no need to wait for ack if nothing changed, the update can be counted as acknowledged
                     ((AckedClusterStateUpdateTask) updateTask).onAllNodesAcked(null);
                 }
@@ -332,7 +332,7 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
 
             try {
                 Discovery.AckListener ackListener = new NoOpAckListener();
-                if (newClusterState.nodes().localNodeMaster()) {
+                if (newClusterState.nodes().localNodeMaster()) {  //master
                     // only the master controls the version numbers
                     Builder builder = ClusterState.builder(newClusterState).version(newClusterState.version() + 1);
                     if (previousClusterState.routingTable() != newClusterState.routingTable()) {
@@ -341,7 +341,7 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
                     if (previousClusterState.metaData() != newClusterState.metaData()) {
                         builder.metaData(MetaData.builder(newClusterState.metaData()).version(newClusterState.metaData().version() + 1));
                     }
-                    newClusterState = builder.build();
+                    newClusterState = builder.build();  //构建新的集群状态
 
                     if (updateTask instanceof AckedClusterStateUpdateTask) {
                         final AckedClusterStateUpdateTask ackedUpdateTask = (AckedClusterStateUpdateTask) updateTask;
@@ -384,7 +384,7 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
                 } else if (logger.isDebugEnabled()) {
                     logger.debug("cluster state updated, version [{}], source [{}]", newClusterState.version(), source);
                 }
-
+                //集群状态更新事件
                 ClusterChangedEvent clusterChangedEvent = new ClusterChangedEvent(source, newClusterState, previousClusterState);
                 // new cluster state, notify all listeners
                 final DiscoveryNodes.Delta nodesDelta = clusterChangedEvent.nodesDelta();
@@ -411,6 +411,7 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
                 // if we are the master, publish the new state to all nodes
                 // we publish here before we send a notification to all the listeners, since if it fails
                 // we don't want to notify
+                //发布集群状态
                 if (newClusterState.nodes().localNodeMaster()) {
                     logger.debug("publishing cluster state version {}", newClusterState.version());
                     discoveryService.publish(newClusterState, ackListener);
@@ -420,6 +421,7 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
                 clusterState = newClusterState;
                 logger.debug("set local cluster state to version {}", newClusterState.version());
 
+                //集群状态改变，调用各个listener方法
                 for (ClusterStateListener listener : priorityClusterStateListeners) {
                     listener.clusterChanged(clusterChangedEvent);
                 }
@@ -668,6 +670,7 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
             });
         }
 
+        //收到节点的ack response是，调用此方法来使countDown -1.
         @Override
         public void onNodeAck(DiscoveryNode node, @Nullable Throwable t) {
             if (!ackedUpdateTask.mustAck(node)) {
@@ -683,10 +686,11 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
                 logger.debug("ack received from node [{}], cluster_state update (version: {})", t, node, clusterStateVersion);
             }
 
-            if (countDown.countDown()) {
+            if (countDown.countDown()) {  // 减1  为0时，说明收到了所有节点的ack信息，则执行if条件内逻辑
                 logger.trace("all expected nodes acknowledged cluster_state update (version: {})", clusterStateVersion);
                 ackTimeoutCallback.cancel(true);
-                ackedUpdateTask.onAllNodesAcked(lastFailure);
+
+                ackedUpdateTask.onAllNodesAcked(lastFailure);//调用封装Response的方法
             }
         }
 

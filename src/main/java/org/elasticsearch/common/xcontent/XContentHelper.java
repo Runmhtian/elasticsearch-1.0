@@ -205,6 +205,9 @@ public class XContentHelper {
     /**
      * Merges the defaults provided as the second parameter into the content of the first. Only does recursive merge
      * for inner maps.
+     * 若是map或者list，则合并
+     * 没有的key value  添加
+     * 有的，不做任何操作
      */
     @SuppressWarnings({"unchecked"})
     public static void mergeDefaults(Map<String, Object> content, Map<String, Object> defaults) {

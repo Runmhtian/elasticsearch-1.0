@@ -37,6 +37,7 @@ import static com.google.common.collect.Maps.newHashMap;
 import static com.google.common.collect.Sets.newHashSet;
 
 /**
+ * 节点 分片路由信息
  * {@link RoutingNodes} represents a copy the routing information contained in
  * the {@link ClusterState cluster state}.
  */
@@ -72,52 +73,53 @@ public class RoutingNodes implements Iterable<RoutingNode> {
         this.routingTable = clusterState.routingTable();
 
         Map<String, List<MutableShardRouting>> nodesToShards = newHashMap();
-        // fill in the nodeToShards with the "live" nodes
+        // fill in the nodeToShards with the "live" nodes  初始化
         for (ObjectCursor<DiscoveryNode> cursor : clusterState.nodes().dataNodes().values()) {
             nodesToShards.put(cursor.value.id(), new ArrayList<MutableShardRouting>());
         }
 
         // fill in the inverse of node -> shards allocated
         // also fill replicaSet information
-        for (IndexRoutingTable indexRoutingTable : routingTable.indicesRouting().values()) {
-            for (IndexShardRoutingTable indexShard : indexRoutingTable) {
-                for (ShardRouting shard : indexShard) {
+        for (IndexRoutingTable indexRoutingTable : routingTable.indicesRouting().values()) {  //IndexRoutingTable 单个索引的路由信息
+            for (IndexShardRoutingTable indexShard : indexRoutingTable) {  //IndexShardRoutingTable  单个分片的路由信息
+                for (ShardRouting shard : indexShard) {  //分片实例
                     // to get all the shards belonging to an index, including the replicas,
                     // we define a replica set and keep track of it. A replica set is identified
                     // by the ShardId, as this is common for primary and replicas.
                     // A replica Set might have one (and not more) replicas with the state of RELOCATING.
-                    if (shard.assignedToNode()) {
+                    if (shard.assignedToNode()) {  //分片已分配
                         List<MutableShardRouting> entries = nodesToShards.get(shard.currentNodeId());
-                        if (entries == null) {
+                        if (entries == null) {// 初始化的nodesToShards  不存在此nodeId，  有分片但是集群状态中不包含此分片的节点  故障节点恢复？
                             entries = newArrayList();
                             nodesToShards.put(shard.currentNodeId(), entries);
                         }
                         MutableShardRouting sr = new MutableShardRouting(shard);
                         entries.add(sr);
-                        assignedShardsAdd(sr);
-                        if (shard.relocating()) {
-                            entries = nodesToShards.get(shard.relocatingNodeId());
-                            relocatingShards++;
+                        assignedShardsAdd(sr);  //添加到 已分配 assignedShards中
+                        if (shard.relocating()) {  //正在移动
+                            entries = nodesToShards.get(shard.relocatingNodeId());//根据正在移动的nodeId，获取node下所有分片实例，可能是from的id，或者to的Id
+                            relocatingShards++; // 记录正在移动的分片数
                             if (entries == null) {
                                 entries = newArrayList();
                                 nodesToShards.put(shard.relocatingNodeId(), entries);
                             }
                             // add the counterpart shard with relocatingNodeId reflecting the source from which
                             // it's relocating from.
+                            //ShardRoutingState.INITIALIZING   初始化状态
                             sr = new MutableShardRouting(shard.index(), shard.id(), shard.relocatingNodeId(),
                                     shard.currentNodeId(), shard.primary(), ShardRoutingState.INITIALIZING, shard.version());
                             entries.add(sr);
-                            assignedShardsAdd(sr);
+                            assignedShardsAdd(sr); //添加到 已分配 assignedShards中  重新new的，与上边不冲突
                         } else if (!shard.active()) { // shards that are initializing without being relocated
                             if (shard.primary()) {
-                                inactivePrimaryCount++;
+                                inactivePrimaryCount++;  // inactiove 的主分片数量
                             }
-                            inactiveShardCount++;
+                            inactiveShardCount++;  //inactiove 的分片数量
                         }
                     } else {
                         MutableShardRouting sr = new MutableShardRouting(shard);
-                        assignedShardsAdd(sr);
-                        unassignedShards.add(sr);
+                        assignedShardsAdd(sr); //直接返回
+                        unassignedShards.add(sr); //添加到未分配
                     }
                 }
             }

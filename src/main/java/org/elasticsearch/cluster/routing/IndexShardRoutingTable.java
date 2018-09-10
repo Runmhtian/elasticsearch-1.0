@@ -36,6 +36,7 @@ import java.util.*;
 import static com.google.common.collect.Lists.newArrayList;
 
 /**
+ * IndexShardRoutingTable 包含了一个分片的所有实例
  * {@link IndexShardRoutingTable} encapsulates all instances of a single shard.
  * Each Elasticsearch index consists of multiple shards, each shard encapsulates
  * a disjoint set of the index data and each shard has one or more instances

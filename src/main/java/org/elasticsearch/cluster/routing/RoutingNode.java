@@ -31,6 +31,8 @@ import java.util.List;
 import static com.google.common.collect.Lists.newArrayList;
 
 /**
+ * 单个节点 包含的分片
+ *
  * A {@link RoutingNode} represents a cluster node associated with a single {@link DiscoveryNode} including all shards
  * that are hosted on that nodes. Each {@link RoutingNode} has a unique node id that can be used to identify the node.
  */

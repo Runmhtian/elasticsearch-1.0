@@ -44,7 +44,7 @@ public class MetaDataService extends AbstractComponent {
         }
     }
 
-    //根据index  从数组中取出一个信号量
+    //根据index  从数组中取出一个信号量 ，实际上实现了index锁，相同的index会拿到同一个为1的信号量
     public Semaphore indexMetaDataLock(String index) {
         return indexMdLocks[Math.abs(DjbHashFunction.DJB_HASH(index) % indexMdLocks.length)];
     }

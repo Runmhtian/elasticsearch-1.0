@@ -126,6 +126,7 @@ public class ThreadPool extends AbstractComponent {
             executors.put(executor.getKey(), build(executor.getKey(), groupSettings.get(executor.getKey()), executor.getValue()));
         }
         //sameThreadExecutor   不使用并发，同步运行多线程代码  ，也是executor的实现类，   实现了统一接口
+        //当你需要Executor / ExecutorService（例如你的接口需要它）并且不想要并发而是同步运行你的多线程代码时使用它
         executors.put(Names.SAME, new ExecutorHolder(MoreExecutors.sameThreadExecutor(), new Info(Names.SAME, "same")));
         if (!executors.get(Names.GENERIC).info.getType().equals("cached")) {
             throw new ElasticsearchIllegalArgumentException("generic thread pool must be of type cached");

@@ -20,7 +20,7 @@
 package org.elasticsearch.common.component;
 
 /**
- *
+ *  定义了生命周期的各个转换过程中  应该调用的方法
  */
 public interface LifecycleListener {
 

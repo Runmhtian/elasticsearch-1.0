@@ -22,7 +22,7 @@ package org.elasticsearch.cluster.block;
 import org.elasticsearch.ElasticsearchIllegalArgumentException;
 
 /**
- *
+ *  阻塞level
  */
 public enum ClusterBlockLevel {
     READ(0),

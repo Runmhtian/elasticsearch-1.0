@@ -22,6 +22,7 @@ package org.elasticsearch.common.component;
 import org.elasticsearch.ElasticsearchIllegalStateException;
 
 /**
+ *  定义了生命周期的几种状态
  * Lifecycle state. Allows the following transitions:
  * <ul>
  * <li>INITIALIZED -> STARTED, STOPPED, CLOSED</li>
@@ -105,6 +106,7 @@ public class Lifecycle {
         return state == State.STOPPED || state == State.CLOSED;
     }
 
+    // 状态之间的转移
     public boolean canMoveToStarted() throws ElasticsearchIllegalStateException {
         State localState = this.state;
         if (localState == State.INITIALIZED || localState == State.STOPPED) {

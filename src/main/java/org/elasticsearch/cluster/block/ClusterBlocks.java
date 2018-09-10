@@ -35,14 +35,16 @@ import java.util.Set;
 
 /**
  * Represents current cluster level blocks to block dirty operations done against the cluster.
+ *
+ * 集群阻塞
  */
 public class ClusterBlocks {
 
     public static final ClusterBlocks EMPTY_CLUSTER_BLOCK = new ClusterBlocks(ImmutableSet.<ClusterBlock>of(), ImmutableMap.<String, ImmutableSet<ClusterBlock>>of());
 
-    private final ImmutableSet<ClusterBlock> global;
+    private final ImmutableSet<ClusterBlock> global;  // 全局阻塞
 
-    private final ImmutableMap<String, ImmutableSet<ClusterBlock>> indicesBlocks;
+    private final ImmutableMap<String, ImmutableSet<ClusterBlock>> indicesBlocks;  // 索引的阻塞
 
     private final ImmutableLevelHolder[] levelHolders;
 

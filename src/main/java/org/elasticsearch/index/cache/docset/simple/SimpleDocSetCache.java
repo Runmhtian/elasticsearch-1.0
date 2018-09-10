@@ -39,6 +39,7 @@ import java.util.concurrent.ConcurrentMap;
  */
 public class SimpleDocSetCache extends AbstractIndexComponent implements DocSetCache, SegmentReader.CoreClosedListener {
 
+    // key:IndexReader   value Queue  FixedBitSet docIdSet
     private final ConcurrentMap<Object, Queue<FixedBitSet>> cache;
 
     @Inject
@@ -62,9 +63,12 @@ public class SimpleDocSetCache extends AbstractIndexComponent implements DocSetC
         cache.remove(reader.getCoreCacheKey());
     }
 
+
+    //返回指定了大小的空的FixedBitSet
     @Override
     public ContextDocIdSet obtain(AtomicReaderContext context) {
         Queue<FixedBitSet> docIdSets = cache.get(context.reader().getCoreCacheKey());
+        //若是cache中没有
         if (docIdSets == null) {
             if (context.reader() instanceof SegmentReader) {
                 ((SegmentReader) context.reader()).addCoreClosedListener(this);
@@ -72,6 +76,7 @@ public class SimpleDocSetCache extends AbstractIndexComponent implements DocSetC
             cache.put(context.reader().getCoreCacheKey(), ConcurrentCollections.<FixedBitSet>newQueue());
             return new ContextDocIdSet(context, new FixedBitSet(context.reader().maxDoc()));
         }
+        //有，返回队列中第一个
         FixedBitSet docIdSet = docIdSets.poll();
         if (docIdSet == null) {
             docIdSet = new FixedBitSet(context.reader().maxDoc());
@@ -81,6 +86,8 @@ public class SimpleDocSetCache extends AbstractIndexComponent implements DocSetC
         return new ContextDocIdSet(context, docIdSet);
     }
 
+
+    //扔到队列里？
     @Override
     public void release(ContextDocIdSet docSet) {
         Queue<FixedBitSet> docIdSets = cache.get(docSet.context.reader().getCoreCacheKey());

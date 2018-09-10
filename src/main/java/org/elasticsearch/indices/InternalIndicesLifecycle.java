@@ -33,7 +33,7 @@ import org.elasticsearch.index.shard.service.IndexShard;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- *
+ *  索引生命周期    添加listener
  */
 public class InternalIndicesLifecycle extends AbstractComponent implements IndicesLifecycle {
 

@@ -28,6 +28,7 @@ import org.elasticsearch.cluster.routing.allocation.RoutingAllocation;
 import org.elasticsearch.cluster.routing.allocation.StartedRerouteAllocation;
 
 /**
+ *  分配器接口
  * <p>
  * A {@link ShardsAllocator} is the main entry point for shard allocation on nodes in the cluster.
  * The allocator makes basic decision where a shard instance will be allocated, if already allocated instances
@@ -37,6 +38,7 @@ import org.elasticsearch.cluster.routing.allocation.StartedRerouteAllocation;
 public interface ShardsAllocator {
 
     /**
+     * 分配成功的执行方法
      * Applies changes on started nodes based on the implemented algorithm. For example if a 
      * shard has changed to {@link ShardRoutingState#STARTED} from {@link ShardRoutingState#RELOCATING} 
      * this allocator might apply some cleanups on the node that used to hold the shard.
@@ -45,12 +47,14 @@ public interface ShardsAllocator {
     void applyStartedShards(StartedRerouteAllocation allocation);
 
     /**
+     * 分配失败的执行方法
      * Applies changes on failed nodes based on the implemented algorithm. 
      * @param allocation all failed {@link ShardRouting shards}
      */
     void applyFailedShards(FailedRerouteAllocation allocation);
 
     /**
+     * 分配所有分片到节点上  这里调用到了决策者AllocationDecider
      * Assign all unassigned shards to nodes 
      * 
      * @param allocation current node allocation
@@ -59,6 +63,7 @@ public interface ShardsAllocator {
     boolean allocateUnassigned(RoutingAllocation allocation);
 
     /**
+     * 平衡所有节点的分片数
      * Rebalancing number of shards on all nodes
      *   
      * @param allocation current node allocation
@@ -67,6 +72,7 @@ public interface ShardsAllocator {
     boolean rebalance(RoutingAllocation allocation);
 
     /**
+     * 移动分片
      * Moves a shard from the given node to other node.
      * 
      * @param shardRouting the shard to move

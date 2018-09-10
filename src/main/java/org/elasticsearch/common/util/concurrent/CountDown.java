@@ -25,6 +25,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
+ * 创建索引的时候用到，用来  将最新集群状态发布到各个节点，等待各个节点的ack
  * A simple thread safe count-down class that in contrast to a {@link CountDownLatch}
  * never blocks. This class is useful if a certain action has to wait for N concurrent 
  * tasks to return or a timeout to occur in order to proceed.
@@ -43,6 +44,7 @@ public final class CountDown {
     }
 
     /**
+     * 用来 减1 和判断是否 为0
      * Decrements the count-down and returns <code>true</code> iff this call
      * reached zero otherwise <code>false</code>
      */

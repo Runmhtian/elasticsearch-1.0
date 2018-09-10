@@ -663,7 +663,7 @@ public class BalancedShardsAllocator extends AbstractComponent implements Shards
                             }
                         }
                     }
-                    assert !shard.assignedToNode() : shard;
+                    assert !shard.assignedToNode() : shard;  // 未被分配
                     /* find an node with minimal weight we can allocate on*/
                     float minWeight = Float.POSITIVE_INFINITY;
                     ModelNode minNode = null;
@@ -671,7 +671,7 @@ public class BalancedShardsAllocator extends AbstractComponent implements Shards
                     if (throttledNodes.size() < nodes.size()) {
                         /* Don't iterate over an identity hashset here the
                          * iteration order is different for each run and makes testing hard */
-                        for (ModelNode node : nodes.values()) {
+                        for (ModelNode node : nodes.values()) {  // 遍历所有节点
                             if (throttledNodes.contains(node)) {
                                 continue;
                             }

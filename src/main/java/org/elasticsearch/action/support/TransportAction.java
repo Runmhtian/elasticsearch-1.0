@@ -52,6 +52,7 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
 
     public void execute(Request request, ActionListener<Response> listener) {
         if (request.listenerThreaded()) {
+            //对ActionListener 进行封装ThreadedActionListener    封装线程池
             listener = new ThreadedActionListener<Response>(threadPool, listener, logger);
         }
         ActionRequestValidationException validationException = request.validate();

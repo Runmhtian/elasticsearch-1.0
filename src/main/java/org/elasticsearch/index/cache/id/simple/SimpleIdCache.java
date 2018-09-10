@@ -53,6 +53,7 @@ import java.util.concurrent.ConcurrentMap;
 public class SimpleIdCache extends AbstractIndexComponent implements IdCache, SegmentReader.CoreClosedListener, DocumentTypeListener {
 
     private final boolean reuse;
+    // 每个indexReader实例  是一个key
     private final ConcurrentMap<Object, SimpleIdReaderCache> idReaders;
     private final NavigableSet<HashedBytesArray> parentTypes;
 

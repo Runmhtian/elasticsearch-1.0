@@ -56,7 +56,7 @@ public abstract class TransportMasterNodeOperationAction<Request extends MasterN
         this.transportAction = transportAction();
         this.executor = executor();
 
-        transportService.registerHandler(transportAction, new TransportHandler());
+        transportService.registerHandler(transportAction, new TransportHandler());  // 这里注册了  handler
     }
 
     protected abstract String transportAction();
@@ -93,13 +93,13 @@ public abstract class TransportMasterNodeOperationAction<Request extends MasterN
     protected void doExecute(final Request request, final ActionListener<Response> listener) {
         innerExecute(request, listener, false);
     }
-
+    //需要mater节点执行的request，调用此方法,  子类继承
     private void innerExecute(final Request request, final ActionListener<Response> listener, final boolean retrying) {
-        final ClusterState clusterState = clusterService.state();
-        final DiscoveryNodes nodes = clusterState.nodes();
-        if (nodes.localNodeMaster() || localExecute(request)) {
+        final ClusterState clusterState = clusterService.state();// 获取集群信息
+        final DiscoveryNodes nodes = clusterState.nodes();  // 获取到所有node信息
+        if (nodes.localNodeMaster() || localExecute(request)) { //判断本节点是否是master节点，或者指定为本地执行模式
             // check for block, if blocked, retry, else, execute locally
-            final ClusterBlockException blockException = checkBlock(request, clusterState);
+            final ClusterBlockException blockException = checkBlock(request, clusterState);  //null
             if (blockException != null) {
                 if (!blockException.retryable()) {
                     listener.onFailure(blockException);
@@ -137,11 +137,13 @@ public abstract class TransportMasterNodeOperationAction<Request extends MasterN
                     }
                 });
             } else {
+                //使用SAME来执行masterOperation方法   同步运行
                 try {
                     threadPool.executor(executor).execute(new Runnable() {
                         @Override
                         public void run() {
                             try {
+                                //调用子类实现方法
                                 masterOperation(request, clusterService.state(), listener);
                             } catch (Throwable e) {
                                 listener.onFailure(e);
@@ -152,19 +154,22 @@ public abstract class TransportMasterNodeOperationAction<Request extends MasterN
                     listener.onFailure(t);
                 }
             }
-        } else {
-            if (nodes.masterNode() == null) {
-                if (retrying) {
+        } else {// 若不是master节点
+
+            if (nodes.masterNode() == null) { //判断是否有mater节点
+                if (retrying) { //没有重试，则返回response
                     listener.onFailure(new MasterNotDiscoveredException());
                 } else {
+                    // 30s timeout后再次尝试执行，并添加到clusterStateListeners ，clusterChange时调用listener的clusterChanged方法
+                    // 难道会一直等待执行成功，或者调用postAdded 出现异常 EsRejectedExecutionException？？
                     clusterService.add(request.masterNodeTimeout(), new TimeoutClusterStateListener() {
                         @Override
                         public void postAdded() {
                             ClusterState clusterStateV2 = clusterService.state();
                             if (clusterStateV2.nodes().masterNodeId() != null) {
                                 // now we have a master, try and execute it...
-                                clusterService.remove(this);
-                                innerExecute(request, listener, true);
+                                clusterService.remove(this);//从clusterService 去除掉此listener
+                                innerExecute(request, listener, true);//再次调用
                             }
                         }
 
@@ -182,7 +187,7 @@ public abstract class TransportMasterNodeOperationAction<Request extends MasterN
 
                         @Override
                         public void clusterChanged(ClusterChangedEvent event) {
-                            if (event.nodesDelta().masterNodeChanged()) {
+                            if (event.nodesDelta().masterNodeChanged()) {//master 改变时调用
                                 clusterService.remove(this);
                                 innerExecute(request, listener, true);
                             }
@@ -191,13 +196,16 @@ public abstract class TransportMasterNodeOperationAction<Request extends MasterN
                 }
                 return;
             }
-            processBeforeDelegationToMaster(request, clusterState);
+            //不是master节点，并且master节点不为null，则向下执行
+            processBeforeDelegationToMaster(request, clusterState); //没有操作
+            //转发请求到 master节点。  同样执行innerExecute函数。
             transportService.sendRequest(nodes.masterNode(), transportAction, request, new BaseTransportResponseHandler<Response>() {
                 @Override
                 public Response newInstance() {
                     return newResponse();
                 }
 
+                //从这可以看到，master节点处理完之后，发送响应到此节点上，此节点再response客户端
                 @Override
                 public void handleResponse(Response response) {
                     listener.onResponse(response);
@@ -261,7 +269,7 @@ public abstract class TransportMasterNodeOperationAction<Request extends MasterN
         @Override
         public String executor() {
             return ThreadPool.Names.SAME;
-        }
+        }  // 使用的是same，请求不是交由线程池执行
 
         @Override
         public void messageReceived(final Request request, final TransportChannel channel) throws Exception {

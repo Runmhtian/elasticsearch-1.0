@@ -137,6 +137,7 @@ public class AllocationService extends AbstractComponent {
     }
 
     /**
+     *
      * Reroutes the routing table based on the live nodes.
      * <p/>
      * <p>If the same instance of the routing table is returned, then no change has been made.
@@ -151,9 +152,9 @@ public class AllocationService extends AbstractComponent {
      * <p>If the same instance of the routing table is returned, then no change has been made.
      */
     public RoutingAllocation.Result reroute(ClusterState clusterState, boolean debug) {
-        RoutingNodes routingNodes = clusterState.routingNodes();
+        RoutingNodes routingNodes = clusterState.routingNodes(); // 根据ClusterState 生成一个RoutingNodes
         // shuffle the unassigned nodes, just so we won't have things like poison failed shards
-        routingNodes.unassigned().shuffle();
+        routingNodes.unassigned().shuffle();// 打乱
         RoutingAllocation allocation = new RoutingAllocation(allocationDeciders, routingNodes, clusterState.nodes(), clusterInfoService.getClusterInfo());
         allocation.debugDecision(debug);
         if (!reroute(allocation)) {
@@ -202,18 +203,20 @@ public class AllocationService extends AbstractComponent {
     private boolean reroute(RoutingAllocation allocation) {
         boolean changed = false;
         // first, clear from the shards any node id they used to belong to that is now dead
-        changed |= deassociateDeadNodes(allocation);
+        changed |= deassociateDeadNodes(allocation);  //从routingNode中去除已经dead的节点
 
         // create a sorted list of from nodes with least number of shards to the maximum ones
-        applyNewNodes(allocation);
+        applyNewNodes(allocation); //向routingNode 添加其不存在的节点（也就是新的节点  还没有路由信息）
 
         // elect primaries *before* allocating unassigned, so backups of primaries that failed
         // will be moved to primary state and not wait for primaries to be allocated and recovered (*from gateway*)
+        // 若是routingNodes有未分配的主分片 并且 有active备份分片，则挑选主分片，  新创建的索引的分片主副都是未分配的
+        // 什么时候会出现这种情况？？
         changed |= electPrimariesAndUnassignDanglingReplicas(allocation);
 
-        // now allocate all the unassigned to available nodes
+        // now allocate all the unassigned to available nodes  这里就是 新创建的未分配的分片
         if (allocation.routingNodes().hasUnassigned()) {
-            changed |= shardsAllocators.allocateUnassigned(allocation);
+            changed |= shardsAllocators.allocateUnassigned(allocation);  // 分片分配
             // elect primaries again, in case this is needed with unassigned allocation
             changed |= electPrimariesAndUnassignDanglingReplicas(allocation);
         }
@@ -275,17 +278,20 @@ public class AllocationService extends AbstractComponent {
             // move out if we don't have unassigned primaries
             return changed;
         }
+        // RoutingNodes 中有未分配的主分片
         for (MutableShardRouting shardEntry : routingNodes.unassigned()) {
-            if (shardEntry.primary()) {
+            if (shardEntry.primary()) {// 是主分片
+                // 根据分片id，获取一个活跃副本分片  状态是started  或者 relocating称为活跃
                 MutableShardRouting candidate = allocation.routingNodes().activeReplica(shardEntry);
-                if (candidate != null) {
-                    routingNodes.swapPrimaryFlag(shardEntry, candidate);
-                    if (candidate.relocatingNodeId() != null) {
+                if (candidate != null) { // 找到一个候选人
+                    routingNodes.swapPrimaryFlag(shardEntry, candidate);  // 交换主 副状态
+                    if (candidate.relocatingNodeId() != null) {  //若是候选分片 正在移动
                         changed = true;
                         // its also relocating, make sure to move the other routing to primary
-                        RoutingNode node = routingNodes.node(candidate.relocatingNodeId());
+                        RoutingNode node = routingNodes.node(candidate.relocatingNodeId());// 获取移动节点 的RoutingNode
                         if (node != null) {
-                            for (MutableShardRouting shardRouting : node) {
+                            for (MutableShardRouting shardRouting : node) { //遍历
+                                //若是移动节点的shardId等于候选分片，并且移动节点不是主分片，则节点上重新选择主分片，这样的话是变为副本在移动
                                 if (shardRouting.shardId().equals(candidate.shardId()) && !shardRouting.primary()) {
                                     routingNodes.swapPrimaryFlag(shardRouting);
                                     break;

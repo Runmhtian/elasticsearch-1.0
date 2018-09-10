@@ -46,6 +46,7 @@ public class AckClusterStatePublishResponseHandler extends BlockingClusterStateP
         this.ackListener = ackListener;
     }
 
+    // 接收到Response时，调用onNodeAck方法  表示此节点ack
     @Override
     public void onResponse(DiscoveryNode node) {
         super.onResponse(node);

@@ -88,7 +88,7 @@ import static org.elasticsearch.common.collect.MapBuilder.newMapBuilder;
 import static org.elasticsearch.common.settings.ImmutableSettings.settingsBuilder;
 
 /**
- *
+ *  维护了所有的索引
  */
 public class InternalIndicesService extends AbstractLifecycleComponent<IndicesService> implements IndicesService {
 
@@ -102,7 +102,7 @@ public class InternalIndicesService extends AbstractLifecycleComponent<IndicesSe
 
     private final PluginsService pluginsService;
 
-    private final Map<String, Injector> indicesInjectors = new HashMap<String, Injector>();
+    private final Map<String, Injector> indicesInjectors = new HashMap<String, Injector>();  //维护索引名称，和对应的注入器
 
     private volatile ImmutableMap<String, IndexService> indices = ImmutableMap.of();
 
@@ -247,6 +247,7 @@ public class InternalIndicesService extends AbstractLifecycleComponent<IndicesSe
         return indices.get(index);
     }
 
+    // 根据index，得到
     @Override
     public IndexService indexServiceSafe(String index) throws IndexMissingException {
         IndexService indexService = indexService(index);
@@ -256,20 +257,18 @@ public class InternalIndicesService extends AbstractLifecycleComponent<IndicesSe
         return indexService;
     }
     /*
-    创建索引   synchronized
-
-
+    创建索引   synchronized  线程安全，同时只能创建一个索引
      */
     public synchronized IndexService createIndex(String sIndexName, Settings settings, String localNodeId) throws ElasticsearchException {
-        if (!lifecycle.started()) {
+        if (!lifecycle.started()) {  //判断生命周期 是否是started
             throw new ElasticsearchIllegalStateException("Can't create an index [" + sIndexName + "], node is closed");
         }
-        Index index = new Index(sIndexName);
+        Index index = new Index(sIndexName);// new index
         if (indicesInjectors.containsKey(index.name())) {
             throw new IndexAlreadyExistsException(index);
         }
 
-        indicesLifecycle.beforeIndexCreated(index);
+        indicesLifecycle.beforeIndexCreated(index);// 调用生命周期对象中的beforeIndexCreated方法
 
         logger.debug("creating Index [{}], shards [{}]/[{}]", sIndexName, settings.get(SETTING_NUMBER_OF_SHARDS), settings.get(SETTING_NUMBER_OF_REPLICAS));
 
@@ -280,36 +279,66 @@ public class InternalIndicesService extends AbstractLifecycleComponent<IndicesSe
                 .build();
 
         ModulesBuilder modules = new ModulesBuilder();
-        modules.add(new IndexNameModule(index));
-        modules.add(new LocalNodeIdModule(localNodeId));
-        modules.add(new IndexSettingsModule(index, indexSettings));
-        modules.add(new IndexPluginsModule(indexSettings, pluginsService));
-        modules.add(new IndexStoreModule(indexSettings));
+        modules.add(new IndexNameModule(index));//索引名称
+        modules.add(new LocalNodeIdModule(localNodeId)); //就用来记录localNodeId
+        modules.add(new IndexSettingsModule(index, indexSettings)); //索引setting   inject IndexSettingsService  和setting
+        modules.add(new IndexPluginsModule(indexSettings, pluginsService));  // 索引plugin 注入
+        modules.add(new IndexStoreModule(indexSettings));  // 根据配置 注入不同的store对象
+        /*
+         默认engine
+         public static final Class<? extends Module> DEFAULT_INDEX_ENGINE = InternalIndexEngineModule.class;
+         public static final Class<? extends Module> DEFAULT_ENGINE = InternalEngineModule.class;
+         */
         modules.add(new IndexEngineModule(indexSettings));
+        /*
+        解析 模块  各种关键字处理   pattern_replace
+        CharFiltersBindings   字符处理
+        TokenFiltersBindings    词元处理
+        TokenizersBindings  分词处理
+        AnalyzersBindings   analyzer 分析器   封装了以上处理单元
+        https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis-analyzers.html
+         */
         modules.add(new AnalysisModule(indexSettings, indicesAnalysisService));
+        //我们要修改打分机制，就需要自定义similarity   BM25Similarity
         modules.add(new SimilarityModule(indexSettings));
+        /*
+        索引相关 cache
+         */
         modules.add(new IndexCacheModule(indexSettings));
+        // fieldData  doc_value  聚合功能
         modules.add(new IndexFieldDataModule(indexSettings));
+        // 编解码模块   PostingsFormatProvider   DocValuesFormatProvider
+        //PostingsFormat covers the inverted index, including all fields, terms, documents,
+        // positions, payloads and offsets. Queries use this API to find their matching documents.
         modules.add(new CodecModule(indexSettings));
+
+        //mapping
         modules.add(new MapperServiceModule());
+        //查询解析
         modules.add(new IndexQueryParserModule(indexSettings));
+        //别名
         modules.add(new IndexAliasesServiceModule());
+        // gateway  full restart 索引恢复
         modules.add(new IndexGatewayModule(indexSettings, injector.getInstance(Gateway.class)));
+        // 索引服务  包含了上边的各个服务模块，直接使用indexService
         modules.add(new IndexModule(indexSettings));
 
         Injector indexInjector;
         try {
+            // 创建一个子注入器
             indexInjector = modules.createChildInjector(injector);
         } catch (CreationException e) {
             throw new IndexCreationException(index, Injectors.getFirstErrorFailure(e));
         } catch (Throwable e) {
             throw new IndexCreationException(index, e);
         }
-
+        // 映射关系
         indicesInjectors.put(index.name(), indexInjector);
 
+        //// 索引服务  包含了上边的各个服务模块，直接使用indexService
         IndexService indexService = indexInjector.getInstance(IndexService.class);
 
+        // 生命周期
         indicesLifecycle.afterIndexCreated(indexService);
 
         indices = newMapBuilder(indices).put(index.name(), indexService).immutableMap();

@@ -21,7 +21,7 @@ package org.elasticsearch.common;
 import org.elasticsearch.ElasticsearchIllegalArgumentException;
 
 /**
- *
+ *  线程优先级
  */
 public final class Priority implements Comparable<Priority> {
 

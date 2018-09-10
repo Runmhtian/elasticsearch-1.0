@@ -31,6 +31,8 @@ import java.util.List;
  * This module configures several {@link AllocationDecider}s
  * that make configuration specific decisions if shards can be allocated on certain nodes.
  *
+ *
+ *
  * @see Decision
  * @see AllocationDecider
  */
@@ -61,7 +63,7 @@ public class AllocationDecidersModule extends AbstractModule {
 
         bind(AllocationDeciders.class).asEagerSingleton();
     }
-
+    //添加决策者
     public static final ImmutableSet<Class<? extends AllocationDecider>> DEFAULT_ALLOCATION_DECIDERS = ImmutableSet.<Class<? extends AllocationDecider>>builder().
             add(SameShardAllocationDecider.class).
             add(FilterAllocationDecider.class).

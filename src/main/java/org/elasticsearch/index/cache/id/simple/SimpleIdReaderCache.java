@@ -30,6 +30,7 @@ import org.elasticsearch.index.shard.ShardId;
  */
 public class SimpleIdReaderCache implements IdReaderCache {
 
+    //根据索引类型来  cache,  key为type
     private final ImmutableMap<String, SimpleIdReaderTypeCache> types;
 
     @Nullable
