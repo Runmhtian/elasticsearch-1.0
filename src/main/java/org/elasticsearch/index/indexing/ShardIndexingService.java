@@ -89,10 +89,11 @@ public class ShardIndexingService extends AbstractIndexShardComponent {
         listeners.remove(listener);
     }
 
+    // 进行索引 create前 操作  统计 listener
     public Engine.Create preCreate(Engine.Create create) {
-        totalStats.indexCurrent.inc();
+        totalStats.indexCurrent.inc();  // 统计
         typeStats(create.type()).indexCurrent.inc();
-        for (IndexingOperationListener listener : listeners) {
+        for (IndexingOperationListener listener : listeners) {  //listeners  索引操作
             create = listener.preCreate(create);
         }
         return create;
@@ -107,6 +108,7 @@ public class ShardIndexingService extends AbstractIndexShardComponent {
             }
         }
     }
+    // 索引后的操作 create
 
     public void postCreate(Engine.Create create) {
         long took = create.endTime() - create.startTime();

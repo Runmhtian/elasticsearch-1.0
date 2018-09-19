@@ -230,6 +230,11 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
         submitStateUpdateTask(source, Priority.NORMAL, updateTask);
     }
 
+
+    /*
+    集群状态更新task，主节点先调用  集群状态改变
+    进而调用publish，其他节点收到 集群状态改变的请求，也会来调用此方法
+     */
     public void submitStateUpdateTask(final String source, Priority priority, final ClusterStateUpdateTask updateTask) {
         if (!lifecycle.started()) {
             return;
@@ -411,7 +416,7 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
                 // if we are the master, publish the new state to all nodes
                 // we publish here before we send a notification to all the listeners, since if it fails
                 // we don't want to notify
-                //发布集群状态
+                //发布集群状态   只有master节点会进行此操作
                 if (newClusterState.nodes().localNodeMaster()) {
                     logger.debug("publishing cluster state version {}", newClusterState.version());
                     discoveryService.publish(newClusterState, ackListener);
@@ -423,6 +428,8 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
 
                 //集群状态改变，调用各个listener方法
                 for (ClusterStateListener listener : priorityClusterStateListeners) {
+
+                    // 会调用IndicesClusterStateService 中的clusterChanged方法，来 初始化分片服务
                     listener.clusterChanged(clusterChangedEvent);
                 }
                 for (ClusterStateListener listener : clusterStateListeners) {

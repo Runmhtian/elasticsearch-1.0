@@ -24,6 +24,8 @@ import org.apache.lucene.analysis.tokenattributes.TermToBytesRefAttribute;
 import org.apache.lucene.util.AttributeSource;
 
 /**
+ * 跟踪terms在索引中的位置或者偏移 ，是perField中的一个属性
+ *
  * This class tracks the number and position / offset parameters of terms
  * being added to the index. The information collected in this class is
  * also used to calculate the normalization factor for a field.
@@ -42,7 +44,7 @@ public final class FieldInvertState {
   AttributeSource attributeSource;
 
   OffsetAttribute offsetAttribute;
-  PositionIncrementAttribute posIncrAttribute;
+  PositionIncrementAttribute posIncrAttribute;  //token 在TokenStream中位置 长度
   PayloadAttribute payloadAttribute;
   TermToBytesRefAttribute termAttribute;
 

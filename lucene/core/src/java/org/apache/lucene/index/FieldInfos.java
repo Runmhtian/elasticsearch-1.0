@@ -184,6 +184,7 @@ public class FieldInfos implements Iterable<FieldInfo> {
     }
     
     /**
+     * 根据字段名称 获取字段编号
      * Returns the global field number for the given field name. If the name
      * does not exist yet it tries to add it with the given preferred field
      * number assigned if possible otherwise the first unassigned field number

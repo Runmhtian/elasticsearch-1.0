@@ -380,6 +380,7 @@ public interface Engine extends IndexShardComponent, CloseableComponent {
         DocumentMapper docMapper();
     }
 
+    // 索引文档 的相关信息封装
     static class Create implements IndexingOperation {
         private final DocumentMapper docMapper;
         private final Term uid;

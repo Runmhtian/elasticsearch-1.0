@@ -48,7 +48,8 @@ import static org.elasticsearch.index.mapper.MapperBuilders.uid;
 import static org.elasticsearch.index.mapper.core.TypeParsers.parseField;
 
 /**
- *
+ *  type 和 id
+ *  https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping-uid-field.html
  */
 public class UidFieldMapper extends AbstractFieldMapper<Uid> implements InternalMapper, RootMapper {
 

@@ -143,6 +143,9 @@ public class IndicesClusterStateService extends AbstractLifecycleComponent<Indic
     protected void doClose() throws ElasticsearchException {
     }
 
+    /*
+    在集群状态改变时调用，创建索引会调用次方法
+     */
     @Override
     public void clusterChanged(final ClusterChangedEvent event) {
         if (!indicesService.changesAllowed()) {
@@ -178,7 +181,7 @@ public class IndicesClusterStateService extends AbstractLifecycleComponent<Indic
             applyNewIndices(event);
             applyMappings(event);
             applyAliases(event);
-            applyNewOrUpdatedShards(event);
+            applyNewOrUpdatedShards(event); //分片服务
             applyDeletedIndices(event);
             applyDeletedShards(event);
             applyCleanedIndices(event);
@@ -596,8 +599,10 @@ public class IndicesClusterStateService extends AbstractLifecycleComponent<Indic
             // got deleted on us, ignore
             return;
         }
-        final int shardId = shardRouting.id();
-
+        final int shardId = shardRouting.id(); //分片id
+        /*
+           多个shardRouting 的shardId相同的是一个分片，只会对应一个IndexShard对象
+         */
         if (indexService.hasShard(shardId)) {
             IndexShard indexShard = indexService.shardSafe(shardId);
             if (indexShard.state() == IndexShardState.STARTED || indexShard.state() == IndexShardState.POST_RECOVERY) {

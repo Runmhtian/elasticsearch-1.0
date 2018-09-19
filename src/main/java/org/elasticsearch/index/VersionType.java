@@ -22,7 +22,7 @@ import org.elasticsearch.ElasticsearchIllegalArgumentException;
 import org.elasticsearch.common.lucene.uid.Versions;
 
 /**
- *
+ * 文档版本类型枚举  策略
  */
 public enum VersionType {
     INTERNAL((byte) 0) {

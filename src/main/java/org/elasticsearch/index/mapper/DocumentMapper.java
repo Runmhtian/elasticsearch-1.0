@@ -53,7 +53,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static com.google.common.collect.Lists.newArrayList;
 
 /**
- *
+ * 文档映射对象    mapping
  */
 public class DocumentMapper implements ToXContent {
 
@@ -231,7 +231,7 @@ public class DocumentMapper implements ToXContent {
         }
     }
 
-
+    //一个thread 使用一个ParseContext  WeakHashMap   线程间 数据共享
     private CloseableThreadLocal<ParseContext> cache = new CloseableThreadLocal<ParseContext>() {
         @Override
         protected ParseContext initialValue() {
@@ -463,7 +463,7 @@ public class DocumentMapper implements ToXContent {
     }
 
     public ParsedDocument parse(SourceToParse source, @Nullable ParseListener listener) throws MapperParsingException {
-        ParseContext context = cache.get();
+        ParseContext context = cache.get();  // 得到一个ParseContext  存储相关数据  上下文用来贯穿整个parse过程
 
         if (source.type() != null && !source.type().equals(this.type)) {
             throw new MapperParsingException("Type mismatch, provide type [" + source.type() + "] but mapper is of type [" + this.type + "]");
@@ -473,6 +473,7 @@ public class DocumentMapper implements ToXContent {
         XContentParser parser = source.parser();
         try {
             if (parser == null) {
+                // 根据source 获取XContentParser
                 parser = XContentHelper.createParser(source.source());
             }
             context.reset(parser, new ParseContext.Document(), source, listener);

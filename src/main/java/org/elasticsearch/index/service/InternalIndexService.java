@@ -177,6 +177,7 @@ public class InternalIndexService extends AbstractIndexComponent implements Inde
         return shards.get(shardId);
     }
 
+    //根据shardId 获取到对应的IndexShard对象
     @Override
     public IndexShard shardSafe(int shardId) throws IndexShardMissingException {
         IndexShard indexShard = shard(shardId);
@@ -299,6 +300,7 @@ public class InternalIndexService extends AbstractIndexComponent implements Inde
         return indexSettings.get(IndexMetaData.SETTING_UUID, IndexMetaData.INDEX_UUID_NA_VALUE);
     }
 
+    //创建分片
     @Override
     public synchronized IndexShard createShard(int sShardId) throws ElasticsearchException {
         /*
@@ -353,7 +355,6 @@ public class InternalIndexService extends AbstractIndexComponent implements Inde
 
         indicesLifecycle.indexShardStateChanged(indexShard, null, "shard created");
         indicesLifecycle.afterIndexShardCreated(indexShard);
-
         shards = newMapBuilder(shards).put(shardId.id(), indexShard).immutableMap();
 
         return indexShard;

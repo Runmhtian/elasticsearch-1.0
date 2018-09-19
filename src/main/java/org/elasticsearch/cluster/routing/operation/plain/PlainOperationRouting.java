@@ -65,6 +65,8 @@ public class PlainOperationRouting extends AbstractComponent implements Operatio
         this.awarenessAllocationDecider = awarenessAllocationDecider;
     }
 
+    //获取到IndexShardRoutingTable  调用shardsIt得到ShardIterator
+
     @Override
     public ShardIterator indexShards(ClusterState clusterState, String index, String type, String id, @Nullable String routing) throws IndexMissingException, IndexShardMissingException {
         return shards(clusterState, index, type, id, routing).shardsIt();
@@ -248,7 +250,7 @@ public class PlainOperationRouting extends AbstractComponent implements Operatio
 
 
     // either routing is set, or type/id are set
-
+    //根据id 和 routing  确定shardId  获取IndexShardRoutingTable
     protected IndexShardRoutingTable shards(ClusterState clusterState, String index, String type, String id, String routing) {
         int shardId = shardId(clusterState, index, type, id, routing);
         return shards(clusterState, index, shardId);
@@ -263,13 +265,15 @@ public class PlainOperationRouting extends AbstractComponent implements Operatio
     }
 
     private int shardId(ClusterState clusterState, String index, String type, @Nullable String id, @Nullable String routing) {
-        if (routing == null) {
-            if (!useType) {
+        //取余 得到对应的shardId
+        if (routing == null) {  // 没有指定 路由
+            if (!useType) {  //是否type 参与分片
                 return Math.abs(hash(id) % indexMetaData(clusterState, index).numberOfShards());
             } else {
                 return Math.abs(hash(type, id) % indexMetaData(clusterState, index).numberOfShards());
             }
         }
+        //指定路由
         return Math.abs(hash(routing) % indexMetaData(clusterState, index).numberOfShards());
     }
 

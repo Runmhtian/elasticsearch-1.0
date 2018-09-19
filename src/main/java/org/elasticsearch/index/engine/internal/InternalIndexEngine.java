@@ -29,7 +29,7 @@ import org.elasticsearch.index.settings.IndexSettings;
 import static org.elasticsearch.common.settings.ImmutableSettings.Builder.EMPTY_SETTINGS;
 
 /**
- *
+ *  每个索引对应一个实例
  */
 public class InternalIndexEngine extends AbstractIndexComponent implements IndexEngine {
 

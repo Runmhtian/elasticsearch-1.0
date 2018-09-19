@@ -92,6 +92,8 @@ public class MapperService extends AbstractIndexComponent implements Iterable<Do
     private volatile String defaultMappingSource;
     private volatile String defaultPercolatorMappingSource;
 
+
+//   key type  和对应的DocumentMapper
     private volatile Map<String, DocumentMapper> mappers = ImmutableMap.of();
 
     private final Object typeMutex = new Object();

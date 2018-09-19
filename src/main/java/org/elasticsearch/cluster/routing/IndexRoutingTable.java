@@ -412,6 +412,7 @@ public class IndexRoutingTable implements Iterable<IndexShardRoutingTable> {
 
         /**
          * Initializes a new empty index, with an option to control if its from an API or not.
+         * 分片和副本的shardId是一样的
          */
         private Builder initializeEmpty(IndexMetaData indexMetaData, boolean asNew) {
             if (!shards.isEmpty()) {

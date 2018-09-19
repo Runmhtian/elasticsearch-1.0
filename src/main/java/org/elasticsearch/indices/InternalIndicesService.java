@@ -247,7 +247,7 @@ public class InternalIndicesService extends AbstractLifecycleComponent<IndicesSe
         return indices.get(index);
     }
 
-    // 根据index，得到
+    // 根据index，得到 IndexService
     @Override
     public IndexService indexServiceSafe(String index) throws IndexMissingException {
         IndexService indexService = indexService(index);
@@ -285,7 +285,7 @@ public class InternalIndicesService extends AbstractLifecycleComponent<IndicesSe
         modules.add(new IndexPluginsModule(indexSettings, pluginsService));  // 索引plugin 注入
         modules.add(new IndexStoreModule(indexSettings));  // 根据配置 注入不同的store对象
         /*
-         默认engine
+         默认engine  每个索引一个 Indexengine实例   和一个 engine实例
          public static final Class<? extends Module> DEFAULT_INDEX_ENGINE = InternalIndexEngineModule.class;
          public static final Class<? extends Module> DEFAULT_ENGINE = InternalEngineModule.class;
          */

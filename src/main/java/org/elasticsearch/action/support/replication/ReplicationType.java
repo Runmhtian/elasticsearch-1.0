@@ -23,6 +23,7 @@ import org.elasticsearch.ElasticsearchIllegalArgumentException;
 
 /**
  * The type of replication to perform.
+ * 三种策略
  */
 public enum ReplicationType {
     /**

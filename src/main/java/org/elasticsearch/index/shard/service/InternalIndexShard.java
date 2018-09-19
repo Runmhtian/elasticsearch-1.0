@@ -367,19 +367,19 @@ public class InternalIndexShard extends AbstractIndexShardComponent implements I
     @Override
     public Engine.Create prepareCreate(SourceToParse source) throws ElasticsearchException {
         long startTime = System.nanoTime();
-        DocumentMapper docMapper = mapperService.documentMapperWithAutoCreate(source.type());
-        ParsedDocument doc = docMapper.parse(source);
+        DocumentMapper docMapper = mapperService.documentMapperWithAutoCreate(source.type());//得到对应的 映射对象
+        ParsedDocument doc = docMapper.parse(source); //使用映射对象  解析索引文档
         return new Engine.Create(docMapper, docMapper.uidMapper().term(doc.uid().stringValue()), doc).startTime(startTime);
     }
 
     @Override
     public ParsedDocument create(Engine.Create create) throws ElasticsearchException {
-        writeAllowed(create.origin());
-        create = indexingService.preCreate(create);
+        writeAllowed(create.origin()); //判断是否允许写  需要查看分片的状态  IndexShardState
+        create = indexingService.preCreate(create);// 统计 listener
         if (logger.isTraceEnabled()) {
             logger.trace("index {}", create.docs());
         }
-        engine.create(create);
+        engine.create(create);  //加入到索引中
         create.endTime(System.nanoTime());
         indexingService.postCreate(create);
         return create.parsedDoc();
@@ -388,8 +388,9 @@ public class InternalIndexShard extends AbstractIndexShardComponent implements I
     @Override
     public Engine.Index prepareIndex(SourceToParse source) throws ElasticsearchException {
         long startTime = System.nanoTime();
+//        根据type  得到DocumentMapper
         DocumentMapper docMapper = mapperService.documentMapperWithAutoCreate(source.type());
-        ParsedDocument doc = docMapper.parse(source);
+        ParsedDocument doc = docMapper.parse(source);  //得到doc
         return new Engine.Index(docMapper, docMapper.uidMapper().term(doc.uid().stringValue()), doc).startTime(startTime);
     }
 

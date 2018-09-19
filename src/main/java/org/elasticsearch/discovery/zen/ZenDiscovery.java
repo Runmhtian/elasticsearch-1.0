@@ -542,6 +542,8 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
 
     private final BlockingQueue<ProcessClusterState> processNewClusterStates = ConcurrentCollections.newBlockingQueue();
 
+
+    //接受到集群状态发布请求
     void handleNewClusterStateFromMaster(ClusterState newClusterState, final PublishClusterStateAction.NewClusterStateListener.NewStateProcessed newStateProcessed) {
         if (master) {
             final ClusterState newState = newClusterState;

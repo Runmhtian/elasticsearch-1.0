@@ -59,14 +59,14 @@ final class DefaultIndexingChain extends DocConsumer {
   // NOTE: I tried using Hash Map<String,PerField>
   // but it was ~2% slower on Wiki and Geonames with Java
   // 1.7.0_25:
-  private PerField[] fieldHash = new PerField[2];
+  private PerField[] fieldHash = new PerField[2];   //数组加链表，PerField 有next指针
   private int hashMask = 1;
 
   private int totalFieldCount;
   private long nextFieldGen;
 
   // Holds fields seen in each document
-  private PerField[] fields = new PerField[1];
+  private PerField[] fields = new PerField[1];  //所有字段的Perfield对象
 
   public DefaultIndexingChain(DocumentsWriterPerThread docWriter) throws IOException {
     this.docWriter = docWriter;
@@ -331,18 +331,18 @@ final class DefaultIndexingChain extends DocConsumer {
     PerField fp = null;
 
     // Invert indexed fields:
-    if (fieldType.indexed()) {
+    if (fieldType.indexed()) {  //此字段是否需要 index
       
       // if the field omits norms, the boost cannot be indexed.
-      if (fieldType.omitNorms() && field.boost() != 1.0f) {
+      if (fieldType.omitNorms() && field.boost() != 1.0f) {  //不合法
         throw new UnsupportedOperationException("You cannot set an index-time boost: norms are omitted for field '" + field.name() + "'");
       }
       
-      fp = getOrAddField(fieldName, fieldType, true);
-      boolean first = fp.fieldGen != fieldGen;
+      fp = getOrAddField(fieldName, fieldType, true); //根据字段名称来获取 PerField对象
+      boolean first = fp.fieldGen != fieldGen;  //是否此字段是第一次出现
       fp.invert(field, first);
 
-      if (first) {
+      if (first) {  //若是第一次出现  则添加到fields中
         fields[fieldCount++] = fp;
         fp.fieldGen = fieldGen;
       }
@@ -351,7 +351,7 @@ final class DefaultIndexingChain extends DocConsumer {
     }
 
     // Add stored fields:
-    if (fieldType.stored()) {
+    if (fieldType.stored()) { //字段 stored
       if (fp == null) {
         fp = getOrAddField(fieldName, fieldType, false);
       }
@@ -474,27 +474,28 @@ final class DefaultIndexingChain extends DocConsumer {
 
     // Make sure we have a PerField allocated
     final int hashPos = name.hashCode() & hashMask;
-    PerField fp = fieldHash[hashPos];
-    while (fp != null && !fp.fieldInfo.name.equals(name)) {
+    PerField fp = fieldHash[hashPos]; //确定数组位置
+    while (fp != null && !fp.fieldInfo.name.equals(name)) {//遍历链表
       fp = fp.next;
     }
 
-    if (fp == null) {
+    if (fp == null) {  //新的字段
       // First time we are seeing this field in this segment
 
-      FieldInfo fi = fieldInfos.addOrUpdate(name, fieldType);
-      
+      FieldInfo fi = fieldInfos.addOrUpdate(name, fieldType);  //得到此字段对应的FieldInfo对象
+      //添加到链表的第一个位置
       fp = new PerField(fi, invert);
       fp.next = fieldHash[hashPos];
       fieldHash[hashPos] = fp;
+      //总共字段数
       totalFieldCount++;
 
       // At most 50% load factor:
-      if (totalFieldCount >= fieldHash.length/2) {
+      if (totalFieldCount >= fieldHash.length/2) {//fieldHash数组扩容
         rehash();
       }
 
-      if (totalFieldCount > fields.length) {
+      if (totalFieldCount > fields.length) { //fields 扩容
         PerField[] newFields = new PerField[ArrayUtil.oversize(totalFieldCount, RamUsageEstimator.NUM_BYTES_OBJECT_REF)];
         System.arraycopy(fields, 0, newFields, 0, fields.length);
         fields = newFields;
@@ -517,7 +518,7 @@ final class DefaultIndexingChain extends DocConsumer {
     final FieldInfo fieldInfo;
     final Similarity similarity;
 
-    FieldInvertState invertState;
+    FieldInvertState invertState;  //倒排状态
     TermsHashPerField termsHashPerField;
 
     // Non-null if this field ever had doc values in this
@@ -569,21 +570,26 @@ final class DefaultIndexingChain extends DocConsumer {
 
     /** Inverts one field for one document; first is true
      *  if this is the first time we are seeing this field
-     *  name in this document. */
+     *  name in this document.
+     *
+     *  倒排一个字段
+     *
+     *  */
     public void invert(IndexableField field, boolean first) throws IOException {
       if (first) {
         // First time we're seeing this field (indexed) in
         // this document:
-        invertState.reset();
+        invertState.reset();  //初始化
       }
 
       IndexableFieldType fieldType = field.fieldType();
 
-      final boolean analyzed = fieldType.tokenized() && docState.analyzer != null;
+      final boolean analyzed = fieldType.tokenized() && docState.analyzer != null; //判断是否可分词  字段类型和分词器
         
       // only bother checking offsets if something will consume them.
       // TODO: after we fix analyzers, also check if termVectorOffsets will be indexed.
-      final boolean checkOffsets = fieldType.indexOptions() == IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS;
+      // termVector  包含文档字段下 的各个token统计信息 出现频次 位置 等
+      final boolean checkOffsets = fieldType.indexOptions() == IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS; //字段的索引选项  mappings中字段配置
 
       int lastStartOffset = 0;
       int lastPosition = 0;
@@ -595,14 +601,14 @@ final class DefaultIndexingChain extends DocConsumer {
        */
       boolean aborting = false;
       boolean succeededInProcessingField = false;
-      try (TokenStream stream = tokenStream = field.tokenStream(docState.analyzer, tokenStream)) {
+      try (TokenStream stream = tokenStream = field.tokenStream(docState.analyzer, tokenStream)) {//得到tokenStream
         // reset the TokenStream to the first token
         stream.reset();
-        invertState.setAttributeSource(stream);
+        invertState.setAttributeSource(stream); //配置属性
 
         termsHashPerField.start(field, first);
 
-        while (stream.incrementToken()) {
+        while (stream.incrementToken()) {//遍历token
 
           // If we hit an exception in stream.next below
           // (which is fairly common, e.g. if analyzer
@@ -611,8 +617,8 @@ final class DefaultIndexingChain extends DocConsumer {
           // will be marked as deleted, but still
           // consume a docID
 
-          int posIncr = invertState.posIncrAttribute.getPositionIncrement();
-          invertState.position += posIncr;
+          int posIncr = invertState.posIncrAttribute.getPositionIncrement();//
+          invertState.position += posIncr; //长度添加
           if (invertState.position < lastPosition) {
             if (posIncr == 0) {
               throw new IllegalArgumentException("first position increment must be > 0 (got 0) for field '" + field.name() + "'");
@@ -643,7 +649,7 @@ final class DefaultIndexingChain extends DocConsumer {
           // corrupt and should not be flushed to a
           // new segment:
           aborting = true;
-          termsHashPerField.add();
+          termsHashPerField.add();//添加
           aborting = false;
 
           invertState.length++;

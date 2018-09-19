@@ -437,7 +437,7 @@ final class DocumentsWriter implements Closeable, Accountable {
   boolean updateDocument(final Iterable<? extends IndexableField> doc, final Analyzer analyzer,
       final Term delTerm) throws IOException {
 
-    boolean hasEvents = preUpdate();
+    boolean hasEvents = preUpdate(); //更新前  flushControl处理
 
     final ThreadState perThread = flushControl.obtainAndLock();
 

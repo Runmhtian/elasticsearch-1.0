@@ -29,7 +29,7 @@ import java.io.IOException;
 import java.io.Serializable;
 
 /**
- * 表示在集群中分配的分片实例的状态。
+ * 表示在集群中分配的分片实例的状态。  分片（主副）
  *
  * Shard routing represents the state of a shard instance allocated in the cluster.
  */

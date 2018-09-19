@@ -505,7 +505,7 @@ public class Field implements IndexableField {
     }
 
     final NumericType numericType = fieldType().numericType();
-    if (numericType != null) {
+    if (numericType != null) { //数值类型
       if (!(reuse instanceof NumericTokenStream && ((NumericTokenStream)reuse).getPrecisionStep() == type.numericPrecisionStep())) {
         // lazy init the TokenStream as it is heavy to instantiate
         // (attributes,...) if not needed (stored field loading)
@@ -533,7 +533,7 @@ public class Field implements IndexableField {
       return reuse;
     }
 
-    if (!fieldType().tokenized()) {
+    if (!fieldType().tokenized()) {  //可 分词
       if (stringValue() == null) {
         throw new IllegalArgumentException("Non-Tokenized Fields must have a String value");
       }

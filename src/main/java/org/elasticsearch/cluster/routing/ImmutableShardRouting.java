@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.io.Serializable;
 
 /**
+ * 分片对象
  * {@link ImmutableShardRouting} immutably encapsulates information about shard
  * routings like id, state, version, etc.
  */
@@ -96,7 +97,7 @@ public class ImmutableShardRouting implements Streamable, Serializable, ShardRou
         this.currentNodeId = currentNodeId;
         this.primary = primary;
         this.state = state;
-        this.asList = ImmutableList.of((ShardRouting) this);
+        this.asList = ImmutableList.of((ShardRouting) this);//只有一个  为了保证接口一致？
         this.version = version;
     }
 

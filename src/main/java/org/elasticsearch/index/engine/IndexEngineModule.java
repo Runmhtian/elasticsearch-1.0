@@ -37,8 +37,8 @@ public class IndexEngineModule extends AbstractModule implements SpawnModules {
     public static final class EngineSettings {
         public static final String ENGINE_TYPE = "index.engine.type";
         public static final String INDEX_ENGINE_TYPE = "index.index_engine.type";
-        public static final Class<? extends Module> DEFAULT_INDEX_ENGINE = InternalIndexEngineModule.class;
-        public static final Class<? extends Module> DEFAULT_ENGINE = InternalEngineModule.class;
+        public static final Class<? extends Module> DEFAULT_INDEX_ENGINE = InternalIndexEngineModule.class;  // 每个索引一个实例
+        public static final Class<? extends Module> DEFAULT_ENGINE = InternalEngineModule.class;//每个分片一个实例
     }
 
     private final Settings settings;

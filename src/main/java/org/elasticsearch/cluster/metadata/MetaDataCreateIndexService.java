@@ -432,6 +432,8 @@ public class MetaDataCreateIndexService extends AbstractComponent {
                         RoutingAllocation.Result routingResult = allocationService.reroute(ClusterState.builder(updatedState).routingTable(routingTableBuilder).build());
                         //加入分配结果
                         updatedState = ClusterState.builder(updatedState).routingResult(routingResult).build();
+
+                        //分配之后shardRouting 中分片的状态为 INITIALIZING   准备开始初始化
                     }
                     return updatedState;
                 } finally {

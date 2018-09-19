@@ -90,7 +90,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- *
+ *  每个分片对应一个实例
  */
 public class InternalEngine extends AbstractIndexShardComponent implements Engine {
 
@@ -144,7 +144,7 @@ public class InternalEngine extends AbstractIndexShardComponent implements Engin
 
     // A uid (in the form of BytesRef) to the version map
     // we use the hashed variant since we iterate over it and check removal and additions on existing keys
-    private final ConcurrentMap<HashedBytesRef, VersionValue> versionMap;
+    private final ConcurrentMap<HashedBytesRef, VersionValue> versionMap;  //每个文档的版本信息
 
     private final Object[] dirtyLocks;
 
@@ -373,16 +373,16 @@ public class InternalEngine extends AbstractIndexShardComponent implements Engin
             rwl.readLock().unlock();
         }
     }
-
+    //文档索引服务  create   create为文档信息
     @Override
     public void create(Create create) throws EngineException {
-        rwl.readLock().lock();
+        rwl.readLock().lock();  //获取读锁
         try {
             IndexWriter writer = this.indexWriter;
             if (writer == null) {
                 throw new EngineClosedException(shardId, failedEngine);
             }
-            innerCreate(create, writer);
+            innerCreate(create, writer);//
             dirty = true;
             possibleMergeNeeded = true;
             flushNeeded = true;
@@ -402,7 +402,7 @@ public class InternalEngine extends AbstractIndexShardComponent implements Engin
     }
 
     private void innerCreate(Create create, IndexWriter writer) throws IOException {
-        synchronized (dirtyLock(create.uid())) {
+        synchronized (dirtyLock(create.uid())) {//synchronized   控制了并发
             HashedBytesRef versionKey = versionKey(create.uid());
             final long currentVersion;
             VersionValue versionValue = versionMap.get(versionKey);
@@ -420,7 +420,7 @@ public class InternalEngine extends AbstractIndexShardComponent implements Engin
             long updatedVersion;
             long expectedVersion = create.version();
             if (create.origin() == Operation.Origin.PRIMARY) {
-                if (create.versionType().isVersionConflict(currentVersion, expectedVersion)) {
+                if (create.versionType().isVersionConflict(currentVersion, expectedVersion)) {  //判断版本是否冲突
                     throw new VersionConflictEngineException(shardId, create.type(), create.id(), currentVersion, expectedVersion);
                 }
                 updatedVersion = create.versionType().updateVersion(currentVersion, expectedVersion);
@@ -442,7 +442,7 @@ public class InternalEngine extends AbstractIndexShardComponent implements Engin
                 if (!versionValue.delete()) {
                     if (create.origin() == Operation.Origin.RECOVERY) {
                         return;
-                    } else {
+                    } else {  //文档已存在   create类型的index
                         throw new DocumentAlreadyExistsException(shardId, create.type(), create.id());
                     }
                 }
@@ -455,18 +455,19 @@ public class InternalEngine extends AbstractIndexShardComponent implements Engin
                 }
             }
 
-            create.version(updatedVersion);
-
+            create.version(updatedVersion);  // 版本
+            //添加文档
             if (create.docs().size() > 1) {
                 writer.addDocuments(create.docs(), create.analyzer());
             } else {
-                writer.addDocument(create.docs().get(0), create.analyzer());
+                writer.addDocument(create.docs().get(0), create.analyzer());//lucene 下操作
             }
+            //写入translog
             Translog.Location translogLocation = translog.add(new Translog.Create(create));
 
             versionMap.put(versionKey, new VersionValue(updatedVersion, false, threadPool.estimatedTimeInMillis(), translogLocation));
 
-            indexingService.postCreateUnderLock(create);
+            indexingService.postCreateUnderLock(create); //索引后操作
         }
     }
 

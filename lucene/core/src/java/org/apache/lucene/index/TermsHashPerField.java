@@ -142,7 +142,10 @@ abstract class TermsHashPerField implements Comparable<TermsHashPerField> {
     }
   }
 
-  /** Called once per inverted token.  This is the primary
+  /**
+   * 每一个需要倒排的token  都会调用这个方法
+   *
+   * Called once per inverted token.  This is the primary
    *  entry point (for first TermsHash); postings use this
    *  API. */
   void add() throws IOException {
@@ -152,11 +155,11 @@ abstract class TermsHashPerField implements Comparable<TermsHashPerField> {
     // We are first in the chain so we must "intern" the
     // term text into textStart address
     // Get the text & hash of this term.
-    int termID = bytesHash.add(termBytesRef);
+    int termID = bytesHash.add(termBytesRef);  //获取termId
       
     //System.out.println("add term=" + termBytesRef.utf8ToString() + " doc=" + docState.docID + " termID=" + termID);
 
-    if (termID >= 0) {// New posting
+    if (termID >= 0) {// New posting // 新的term
       bytesHash.byteStart(termID);
       // Init stream slices
       if (numPostingInt + intPool.intUpto > IntBlockPool.INT_BLOCK_SIZE) {
@@ -181,7 +184,7 @@ abstract class TermsHashPerField implements Comparable<TermsHashPerField> {
 
       newTerm(termID);
 
-    } else {
+    } else {  // 已存在的term
       termID = (-termID)-1;
       int intStart = postingsArray.intStarts[termID];
       intUptos = intPool.buffers[intStart >> IntBlockPool.INT_BLOCK_SHIFT];

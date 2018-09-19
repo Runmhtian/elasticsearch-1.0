@@ -87,8 +87,8 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
         this.executor = executor();
         this.checkWriteConsistency = checkWriteConsistency();
 
-        transportService.registerHandler(transportAction, new OperationTransportHandler());
-        transportService.registerHandler(transportReplicaAction, new ReplicaOperationTransportHandler());
+        transportService.registerHandler(transportAction, new OperationTransportHandler());  //index
+        transportService.registerHandler(transportReplicaAction, new ReplicaOperationTransportHandler());// index/replica
 
         this.transportOptions = transportOptions();
 
@@ -319,7 +319,7 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
             this.request = request;
             this.listener = listener;
 
-            if (request.replicationType() != ReplicationType.DEFAULT) {
+            if (request.replicationType() != ReplicationType.DEFAULT) {// 判断请求的复制类型
                 replicationType = request.replicationType();
             } else {
                 replicationType = defaultReplicationType;
@@ -336,8 +336,8 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
         public boolean start(final boolean fromClusterEvent) throws ElasticsearchException {
             this.clusterState = clusterService.state();
             try {
-                ClusterBlockException blockException = checkGlobalBlock(clusterState, request);
-                if (blockException != null) {
+                ClusterBlockException blockException = checkGlobalBlock(clusterState, request);//判断cluster是否 write block
+                if (blockException != null) {  // 集群不允许写
                     if (blockException.retryable()) {
                         logger.trace("cluster is blocked ({}), scheduling a retry", blockException.getMessage());
                         retry(fromClusterEvent, blockException);
@@ -346,11 +346,11 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
                         throw blockException;
                     }
                 }
-                // check if we need to execute, and if not, return
+                // check if we need to execute, and if not, return   检查request  索引或者别名转换
                 if (!resolveRequest(clusterState, request, listener)) {
                     return true;
                 }
-                blockException = checkRequestBlock(clusterState, request);
+                blockException = checkRequestBlock(clusterState, request);//判断index write block
                 if (blockException != null) {
                     if (blockException.retryable()) {
                         logger.trace("cluster is blocked ({}), scheduling a retry", blockException.getMessage());
@@ -360,12 +360,16 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
                         throw blockException;
                     }
                 }
+                /*
+               根据请求 索引，文档id，routing，type，找到对应的  IndexShardRoutingTable （一个分片的所有实例  主 备）
+               进而得到ShardIterator
+                 */
                 shardIt = shards(clusterState, request);
             } catch (Throwable e) {
                 listener.onFailure(e);
                 return true;
             }
-
+            //没有找到对应的shard，可能分片正在恢复
             // no shardIt, might be in the case between index gateway recovery and shardIt initialization
             if (shardIt.size() == 0) {
                 logger.trace("no shard instances known for shard [{}], scheduling a retry", shardIt.shardId());
@@ -378,10 +382,11 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
             ShardRouting shardX;
             while ((shardX = shardIt.nextOrNull()) != null) {
                 final ShardRouting shard = shardX;
-                // we only deal with primary shardIt here...
+                // we only deal with primary shardIt here...  找到主分片
                 if (!shard.primary()) {
                     continue;
                 }
+                //分片不是active，或者节点不存在
                 if (!shard.active() || !clusterState.nodes().nodeExists(shard.currentNodeId())) {
                     logger.trace("primary shard [{}] is not yet active or we do not know the node it is assigned to [{}], scheduling a retry.", shard.shardId(), shard.currentNodeId());
                     retry(fromClusterEvent, null);
@@ -389,19 +394,19 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
                 }
 
                 // check here for consistency
-                if (checkWriteConsistency) {
-                    WriteConsistencyLevel consistencyLevel = defaultWriteConsistencyLevel;
+                if (checkWriteConsistency) { // index true 若是需要检查写一致性   保证写的时候活跃的分片数大于一定的数目
+                    WriteConsistencyLevel consistencyLevel = defaultWriteConsistencyLevel;   ///默认为quorum
                     if (request.consistencyLevel() != WriteConsistencyLevel.DEFAULT) {
                         consistencyLevel = request.consistencyLevel();
                     }
-                    int requiredNumber = 1;
+                    int requiredNumber = 1;  // 计算quorum需要的数目  默认为1 WriteConsistencyLevel为 one
                     if (consistencyLevel == WriteConsistencyLevel.QUORUM && shardIt.size() > 2) {
                         // only for more than 2 in the number of shardIt it makes sense, otherwise its 1 shard with 1 replica, quorum is 1 (which is what it is initialized to)
                         requiredNumber = (shardIt.size() / 2) + 1;
                     } else if (consistencyLevel == WriteConsistencyLevel.ALL) {
                         requiredNumber = shardIt.size();
                     }
-
+//                    若是分片下 活跃的主备数 小于需求quorum的数目
                     if (shardIt.sizeActive() < requiredNumber) {
                         logger.trace("not enough active copies of shard [{}] to meet write consistency of [{}] (have {}, needed {}), scheduling a retry.",
                                 shard.shardId(), consistencyLevel, shardIt.sizeActive(), requiredNumber);
@@ -410,14 +415,14 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
                     }
                 }
 
-                if (!primaryOperationStarted.compareAndSet(false, true)) {
+                if (!primaryOperationStarted.compareAndSet(false, true)) {  //cas 置为true
                     return true;
                 }
 
                 foundPrimary = true;
-                if (shard.currentNodeId().equals(clusterState.nodes().localNodeId())) {
+                if (shard.currentNodeId().equals(clusterState.nodes().localNodeId())) {  //主分片是当前节点
                     try {
-                        if (request.operationThreaded()) {
+                        if (request.operationThreaded()) { // 请求是否需要 线程执行  true
                             request.beforeLocalFork();
                             threadPool.executor(executor).execute(new Runnable() {
                                 @Override
@@ -430,12 +435,14 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
                                 }
                             });
                         } else {
+                            //在主分片上运行
                             performOnPrimary(shard.id(), shard, clusterState);
                         }
                     } catch (Throwable t) {
                         listener.onFailure(t);
                     }
                 } else {
+                    //否则的话 发请求到主分片所在节点，执行以上逻辑
                     DiscoveryNode node = clusterState.nodes().get(shard.currentNodeId());
                     transportService.sendRequest(node, transportAction, request, transportOptions, new BaseTransportResponseHandler<Response>() {
 
@@ -553,7 +560,9 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
 
         void performOnPrimary(int primaryShardId, final ShardRouting shard, ClusterState clusterState) {
             try {
+                //在主分片上进行  得到主分片的响应
                 PrimaryResponse<Response, ReplicaRequest> response = shardOperationOnPrimary(clusterState, new PrimaryOperationRequest(primaryShardId, request));
+                //在副本分片上进行
                 performReplicas(response);
             } catch (Throwable e) {
                 // shard has not been allocated yet, retry it here
@@ -577,7 +586,7 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
         }
 
         void performReplicas(final PrimaryResponse<Response, ReplicaRequest> response) {
-            if (ignoreReplicas()) {
+            if (ignoreReplicas()) {  //判断此action是否  忽略 副本
                 postPrimaryOperation(request, response);
                 listener.onResponse(response.response());
                 return;
@@ -593,10 +602,10 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
             // new primary shard as well...
             ClusterState newState = clusterService.state();
             ShardRouting newPrimaryShard = null;
-            if (clusterState != newState) {
+            if (clusterState != newState) {  //集群状态改变
                 shardIt.reset();
                 ShardRouting originalPrimaryShard = null;
-                while ((shard = shardIt.nextOrNull()) != null) {
+                while ((shard = shardIt.nextOrNull()) != null) {  //原状态的主分片
                     if (shard.primary()) {
                         originalPrimaryShard = shard;
                         break;
@@ -607,10 +616,10 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
                 }
 
                 clusterState = newState;
-                shardIt = shards(newState, request);
+                shardIt = shards(newState, request); //现在状态的分片迭代
                 while ((shard = shardIt.nextOrNull()) != null) {
                     if (shard.primary()) {
-                        if (originalPrimaryShard.currentNodeId().equals(shard.currentNodeId())) {
+                        if (originalPrimaryShard.currentNodeId().equals(shard.currentNodeId())) { //原来主分片的节点等于现在主分片的节点  也就是主分片没有移动
                             newPrimaryShard = null;
                         } else {
                             newPrimaryShard = shard;
@@ -633,7 +642,7 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
                 return;
             }
 
-            if (replicationType == ReplicationType.ASYNC) {
+            if (replicationType == ReplicationType.ASYNC) {  //异步直接响应  并向下执行
                 postPrimaryOperation(request, response);
                 // async replication, notify the listener
                 listener.onResponse(response.response());
@@ -648,7 +657,7 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
 
             IndexMetaData indexMetaData = clusterState.metaData().index(request.index());
 
-            if (newPrimaryShard != null) {
+            if (newPrimaryShard != null) { //集群主节点改变
                 performOnReplica(response, counter, newPrimaryShard, newPrimaryShard.currentNodeId(), indexMetaData);
             }
 
@@ -672,10 +681,10 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
                 // we index on a replica that is initializing as well since we might not have got the event
                 // yet that it was started. We will get an exception IllegalShardState exception if its not started
                 // and that's fine, we will ignore it
-                if (!doOnlyOnRelocating) {
+                if (!doOnlyOnRelocating) {//不是主分片
                     performOnReplica(response, counter, shard, shard.currentNodeId(), indexMetaData);
                 }
-                if (shard.relocating()) {
+                if (shard.relocating()) {//分片正在迁移
                     performOnReplica(response, counter, shard, shard.relocatingNodeId(), indexMetaData);
                 }
             }
@@ -691,7 +700,7 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
         void performOnReplica(final PrimaryResponse<Response, ReplicaRequest> response, final AtomicInteger counter, final ShardRouting shard, String nodeId, final IndexMetaData indexMetaData) {
             // if we don't have that node, it means that it might have failed and will be created again, in
             // this case, we don't have to do the operation, and just let it failover
-            if (!clusterState.nodes().nodeExists(nodeId)) {
+            if (!clusterState.nodes().nodeExists(nodeId)) {//检查此分片所在节点是否存在
                 if (counter.decrementAndGet() == 0) {
                     listener.onResponse(response.response());
                 }
@@ -699,7 +708,7 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
             }
 
             final ReplicaOperationRequest shardRequest = new ReplicaOperationRequest(shardIt.shardId().id(), response.replicaRequest());
-            if (!nodeId.equals(clusterState.nodes().localNodeId())) {
+            if (!nodeId.equals(clusterState.nodes().localNodeId())) {//此分片所在节点不是本地节点
                 DiscoveryNode node = clusterState.nodes().get(nodeId);
                 transportService.sendRequest(node, transportReplicaAction, shardRequest, transportOptions, new EmptyTransportResponseHandler(ThreadPool.Names.SAME) {
                     @Override
@@ -723,15 +732,15 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
                         }
                     }
                 });
-            } else {
-                if (request.operationThreaded()) {
+            } else {//是本地节点
+                if (request.operationThreaded()) {   //线程执行
                     request.beforeLocalFork();
                     try {
                         threadPool.executor(executor).execute(new AbstractRunnable() {
                             @Override
                             public void run() {
                                 try {
-                                    shardOperationOnReplica(shardRequest);
+                                    shardOperationOnReplica(shardRequest);//副本操作
                                 } catch (Throwable e) {
                                     if (!ignoreReplicaException(e)) {
                                         logger.warn("Failed to perform " + transportAction + " on replica " + shardIt.shardId(), e);
@@ -739,7 +748,7 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
                                                 "Failed to perform [" + transportAction + "] on replica, message [" + detailedMessage(e) + "]");
                                     }
                                 }
-                                if (counter.decrementAndGet() == 0) {
+                                if (counter.decrementAndGet() == 0) {  //所有副本都写入成功
                                     listener.onResponse(response.response());
                                 }
                             }

@@ -262,7 +262,7 @@ public class IndexWriter implements Closeable, TwoPhaseCommit, Accountable {
   final SegmentInfos segmentInfos;       // the segments
   final FieldNumbers globalFieldNumberMap;
 
-  private final DocumentsWriter docWriter;
+  private final DocumentsWriter docWriter;  //indexWrite下DocumentsWriter
   private final Queue<Event> eventQueue;
   final IndexFileDeleter deleter;
 
@@ -1510,7 +1510,7 @@ public class IndexWriter implements Closeable, TwoPhaseCommit, Accountable {
    */
   public void updateDocument(Term term, Iterable<? extends IndexableField> doc, Analyzer analyzer)
       throws IOException {
-    ensureOpen();
+    ensureOpen(); // 确定indexWriter open
     try {
       boolean success = false;
       try {
