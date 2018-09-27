@@ -191,7 +191,7 @@ public class TransportService extends AbstractLifecycleComponent<TransportServic
                 timeoutHandler.future = threadPool.schedule(options.timeout(), ThreadPool.Names.GENERIC, timeoutHandler);
             }
             clientHandlers.put(requestId, new RequestHolder<T>(handler, node, action, timeoutHandler));
-            transport.sendRequest(node, requestId, action, request, options);
+            transport.sendRequest(node, requestId, action, reque st, options);
         } catch (final Throwable e) {
             // usually happen either because we failed to connect to the node
             // or because we failed serializing the message

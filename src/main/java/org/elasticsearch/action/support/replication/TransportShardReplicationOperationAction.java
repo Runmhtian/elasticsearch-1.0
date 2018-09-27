@@ -322,7 +322,7 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
             if (request.replicationType() != ReplicationType.DEFAULT) {// 判断请求的复制类型
                 replicationType = request.replicationType();
             } else {
-                replicationType = defaultReplicationType;
+                replicationType = defaultReplicationType; //使用配置文件中配置的type，默认是sync
             }
         }
 
@@ -415,7 +415,7 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
                     }
                 }
 
-                if (!primaryOperationStarted.compareAndSet(false, true)) {  //cas 置为true
+                if (!primaryOperationStarted.compareAndSet(false, true)) {  //cas 置为true   只执行一次
                     return true;
                 }
 
@@ -426,7 +426,7 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
                             request.beforeLocalFork();
                             threadPool.executor(executor).execute(new Runnable() {
                                 @Override
-                                public void run() {
+                                public void run() {  //INDEX线程池
                                     try {
                                         performOnPrimary(shard.id(), shard, clusterState);
                                     } catch (Throwable t) {
@@ -442,7 +442,7 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
                         listener.onFailure(t);
                     }
                 } else {
-                    //否则的话 发请求到主分片所在节点，执行以上逻辑
+                    //否则的话 发请求到主分片所在节点，从OperationTransportHandler处开始执行  到performOnPrimary
                     DiscoveryNode node = clusterState.nodes().get(shard.currentNodeId());
                     transportService.sendRequest(node, transportAction, request, transportOptions, new BaseTransportResponseHandler<Response>() {
 
@@ -652,7 +652,7 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
 
             // we add one to the replica count to do the postPrimaryOperation
             replicaCounter++;
-            AtomicInteger counter = new AtomicInteger(replicaCounter);
+            AtomicInteger counter = new AtomicInteger(replicaCounter); //用来 记录副本写入成功
 
 
             IndexMetaData indexMetaData = clusterState.metaData().index(request.index());
@@ -672,7 +672,7 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
                 // (and we already did it on the primary)
                 boolean doOnlyOnRelocating = false;
                 if (shard.primary()) {
-                    if (shard.relocating()) {
+                    if (shard.relocating()) {  //主分片正在迁移
                         doOnlyOnRelocating = true;
                     } else {
                         continue;
@@ -681,10 +681,10 @@ public abstract class TransportShardReplicationOperationAction<Request extends S
                 // we index on a replica that is initializing as well since we might not have got the event
                 // yet that it was started. We will get an exception IllegalShardState exception if its not started
                 // and that's fine, we will ignore it
-                if (!doOnlyOnRelocating) {//不是主分片
+                if (!doOnlyOnRelocating) {//非主分片执行
                     performOnReplica(response, counter, shard, shard.currentNodeId(), indexMetaData);
                 }
-                if (shard.relocating()) {//分片正在迁移
+                if (shard.relocating()) {//分片正在迁移  迁移到的节点relocatingNodeId  也要写
                     performOnReplica(response, counter, shard, shard.relocatingNodeId(), indexMetaData);
                 }
             }

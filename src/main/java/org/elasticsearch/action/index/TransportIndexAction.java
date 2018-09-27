@@ -54,7 +54,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 进行 index操作的入口， 插入文档
+ * 进行 index操作的入口， 索引文档
  *
  *
  * Performs the index operation.

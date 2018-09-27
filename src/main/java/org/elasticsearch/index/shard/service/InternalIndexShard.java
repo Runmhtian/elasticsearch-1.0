@@ -95,7 +95,7 @@ import java.util.concurrent.TimeUnit;
 import static org.elasticsearch.index.mapper.SourceToParse.source;
 
 /**
- *
+ *  管理者分片的各个服务   与lucence交互
  */
 public class InternalIndexShard extends AbstractIndexShardComponent implements IndexShard {
 
