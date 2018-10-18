@@ -312,6 +312,7 @@ public class SearchService extends AbstractLifecycleComponent<SearchService> {
         }
     }
 
+    //执行查询
     public QueryFetchSearchResult executeFetchPhase(ShardSearchRequest request) throws ElasticsearchException {
         SearchContext context = createAndPutContext(request);
         contextProcessing(context);
@@ -319,16 +320,19 @@ public class SearchService extends AbstractLifecycleComponent<SearchService> {
             context.indexShard().searchService().onPreQueryPhase(context);
             long time = System.nanoTime();
             try {
+                // query
                 queryPhase.execute(context);
             } catch (Throwable e) {
                 context.indexShard().searchService().onFailedQueryPhase(context);
                 throw ExceptionsHelper.convertToRuntime(e);
             }
             long time2 = System.nanoTime();
+            //统计
             context.indexShard().searchService().onQueryPhase(context, time2 - time);
             context.indexShard().searchService().onPreFetchPhase(context);
             try {
                 shortcutDocIdsToLoad(context);
+                //fetch
                 fetchPhase.execute(context);
                 if (context.scroll() == null) {
                     freeContext(context.id());
@@ -485,7 +489,7 @@ public class SearchService extends AbstractLifecycleComponent<SearchService> {
 
     final SearchContext createContext(ShardSearchRequest request, @Nullable Engine.Searcher searcher) throws ElasticsearchException {
         IndexService indexService = indicesService.indexServiceSafe(request.index());
-        IndexShard indexShard = indexService.shardSafe(request.shardId());
+        IndexShard indexShard = indexService.shardSafe(request.shardId());  // 分片模块对象
 
         SearchShardTarget shardTarget = new SearchShardTarget(clusterService.localNode().id(), request.index(), request.shardId());
 

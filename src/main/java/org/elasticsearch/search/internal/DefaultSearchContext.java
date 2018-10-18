@@ -73,7 +73,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- *
+ *  查询上下文
  */
 public class DefaultSearchContext extends SearchContext {
 

@@ -298,9 +298,11 @@ public class SearchServiceTransportAction extends AbstractComponent {
         }
     }
 
+    //若是本地节点则直接执行executeFetchPhase 方法获取result，否则sendRequest 从response中拿到result
     public void sendExecuteFetch(DiscoveryNode node, final ShardSearchRequest request, final SearchServiceListener<QueryFetchSearchResult> listener) {
         if (clusterService.state().nodes().localNodeId().equals(node.id())) {
             try {
+                // 请求result
                 QueryFetchSearchResult result = searchService.executeFetchPhase(request);
                 listener.onResult(result);
             } catch (Throwable e) {

@@ -29,7 +29,8 @@ import java.io.IOException;
 import java.io.Serializable;
 
 /**
- * 表示在集群中分配的分片实例的状态。  分片（主副）
+ * 表示在集群中分配的分片实例的状态。  分片（主副）   查询的时候根据shardId  得到indexShard对象  来进行查询，一个机器上有多个分片但是只会有一个IndexShard实例
+ * 也就是说  不管是主分片还是副本 分布在不同的机器上 对应着不同的IndexShard实例
  *
  * Shard routing represents the state of a shard instance allocated in the cluster.
  */

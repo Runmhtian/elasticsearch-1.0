@@ -90,8 +90,8 @@ public abstract class TransportSearchTypeAction extends TransportAction<SearchRe
         protected final AtomicInteger successulOps = new AtomicInteger();
         private final AtomicInteger totalOps = new AtomicInteger();
 
-        protected final AtomicArray<FirstResult> firstResults;
-        private volatile AtomicArray<ShardSearchFailure> shardFailures;
+        protected final AtomicArray<FirstResult> firstResults;  //记录结果
+        private volatile AtomicArray<ShardSearchFailure> shardFailures;//记录失败shard
         private final Object shardFailuresMutex = new Object();
         protected volatile ScoreDoc[] sortedShardList;
 
@@ -104,21 +104,26 @@ public abstract class TransportSearchTypeAction extends TransportAction<SearchRe
             this.clusterState = clusterService.state();
             nodes = clusterState.nodes();
 
-            clusterState.blocks().globalBlockedRaiseException(ClusterBlockLevel.READ);
+            clusterState.blocks().globalBlockedRaiseException(ClusterBlockLevel.READ);// 检查是否集群 read block
 
+            //使用 请求索引 和索引不可用的处理策略  得到 关注的索引数组
             String[] concreteIndices = clusterState.metaData().concreteIndices(request.indices(), request.indicesOptions());
 
             for (String index : concreteIndices) {
+                //检查每个索引 是否read block
                 clusterState.blocks().indexBlockedRaiseException(ClusterBlockLevel.READ, index);
             }
-
+            //key indexName  value routing按，好分割得到的set   routing 多个字段
             Map<String, Set<String>> routingMap = clusterState.metaData().resolveSearchRouting(request.routing(), request.indices());
 
+            //根据search信息得到  分片迭代器
             shardsIts = clusterService.operationRouting().searchShards(clusterState, request.indices(), concreteIndices, routingMap, request.preference());
-            expectedSuccessfulOps = shardsIts.size();
+            expectedSuccessfulOps = shardsIts.size();  //需要查询的分片 数  这个size  指分片数 而不是分区数
             // we need to add 1 for non active partition, since we count it in the total!
-            expectedTotalOps = shardsIts.totalSizeWith1ForEmpty();
+//            没有活跃分区的分片，+1  意味至少需要有一个active  可能后续恢复过来
+            expectedTotalOps = shardsIts.totalSizeWith1ForEmpty();  //需要总分区数  包含主副
 
+            //存放每个分片的返回结果？
             firstResults = new AtomicArray<FirstResult>(shardsIts.size());
         }
 
@@ -132,24 +137,24 @@ public abstract class TransportSearchTypeAction extends TransportAction<SearchRe
             // count the local operations, and perform the non local ones
             int localOperations = 0;
             int shardIndex = -1;
-            for (final ShardIterator shardIt : shardsIts) {
+            for (final ShardIterator shardIt : shardsIts) { //迭代每个分片的迭代器
                 shardIndex++;
-                final ShardRouting shard = shardIt.firstOrNull();
+                final ShardRouting shard = shardIt.firstOrNull();  //迭代器的第一个shard   //每次都是第一个分片  其他分片不参与查询么？ 仅仅灾备？
                 if (shard != null) {
-                    if (shard.currentNodeId().equals(nodes.localNodeId())) {
+                    if (shard.currentNodeId().equals(nodes.localNodeId())) {//本地节点
                         localOperations++;
-                    } else {
+                    } else {//非本地节点
                         // do the remote operation here, the localAsync flag is not relevant
                         performFirstPhase(shardIndex, shardIt);
                     }
-                } else {
+                } else {  //出现异常
                     // really, no shards active in this group
                     onFirstPhaseResult(shardIndex, null, null, shardIt, new NoShardAvailableActionException(shardIt.shardId()));
                 }
             }
-            // we have local operations, perform them now
+            // we have local operations, perform them now   本地节点上的查询
             if (localOperations > 0) {
-                if (request.operationThreading() == SearchOperationThreading.SINGLE_THREAD) {
+                if (request.operationThreading() == SearchOperationThreading.SINGLE_THREAD) {  //执行策略
                     request.beforeLocalFork();
                     threadPool.executor(ThreadPool.Names.SEARCH).execute(new Runnable() {
                         @Override
@@ -213,6 +218,7 @@ public abstract class TransportSearchTypeAction extends TransportAction<SearchRe
                     onFirstPhaseResult(shardIndex, shard, null, shardIt, new NoShardAvailableActionException(shardIt.shardId()));
                 } else {
                     String[] filteringAliases = clusterState.metaData().filteringAliases(shard.index(), request.indices());
+                    // internalSearchRequest封装request
                     sendExecuteFirstPhase(node, internalSearchRequest(shard, shardsIts.size(), request, filteringAliases, startTime), new SearchServiceListener<FirstResult>() {
                         @Override
                         public void onResult(FirstResult result) {
@@ -227,20 +233,20 @@ public abstract class TransportSearchTypeAction extends TransportAction<SearchRe
                 }
             }
         }
-
+        //处理第一阶段得到的result
         void onFirstPhaseResult(int shardIndex, ShardRouting shard, FirstResult result, ShardIterator shardIt) {
             result.shardTarget(new SearchShardTarget(shard.currentNodeId(), shard.index(), shard.id()));
             processFirstPhaseResult(shardIndex, shard, result);
             // we need to increment successful ops first before we compare the exit condition otherwise if we
             // are fast we could concurrently update totalOps but then preempt one of the threads which can
             // cause the successor to read a wrong value from successfulOps if second phase is very fast ie. count etc.
-            successulOps.incrementAndGet();
+            successulOps.incrementAndGet(); //增加1
             // increment all the "future" shards to update the total ops since we some may work and some may not...
             // and when that happens, we break on total ops, so we must maintain them
             final int xTotalOps = totalOps.addAndGet(shardIt.remaining() + 1);
             if (xTotalOps == expectedTotalOps) {
                 try {
-                    innerMoveToSecondPhase();
+                    innerMoveToSecondPhase();  //第二阶段
                 } catch (Throwable e) {
                     if (logger.isDebugEnabled()) {
                         logger.debug(shardIt.shardId() + ": Failed to execute [" + request + "] while moving to second phase", e);
@@ -254,9 +260,9 @@ public abstract class TransportSearchTypeAction extends TransportAction<SearchRe
             // we always add the shard failure for a specific shard instance
             // we do make sure to clean it on a successful response from a shard
             SearchShardTarget shardTarget = new SearchShardTarget(nodeId, shardIt.shardId().getIndex(), shardIt.shardId().getId());
-            addShardFailure(shardIndex, shardTarget, t);
+            addShardFailure(shardIndex, shardTarget, t);  //添加Failure到shardFailures 变量中
 
-            if (totalOps.incrementAndGet() == expectedTotalOps) {
+            if (totalOps.incrementAndGet() == expectedTotalOps) { //totalOps 增加
                 if (logger.isDebugEnabled()) {
                     if (t != null && !TransportActions.isShardNotAvailableException(t)) {
                         if (shard != null) {
@@ -266,7 +272,7 @@ public abstract class TransportSearchTypeAction extends TransportAction<SearchRe
                         }
                     }
                 }
-                if (successulOps.get() == 0) {
+                if (successulOps.get() == 0) {  // totalops =expectedTotalOps  且successulOps为0  所有分片的分区都失败了
                     if (logger.isDebugEnabled()) {
                         logger.debug("All shards failed for phase: [{}]", firstPhaseName(), t);
                     }
@@ -280,7 +286,7 @@ public abstract class TransportSearchTypeAction extends TransportAction<SearchRe
                     }
                 }
             } else {
-                final ShardRouting nextShard = shardIt.nextOrNull();
+                final ShardRouting nextShard = shardIt.nextOrNull(); //下一个分片
                 final boolean lastShard = nextShard == null;
                 // trace log this exception
                 if (logger.isTraceEnabled() && t != null) {
@@ -341,7 +347,7 @@ public abstract class TransportSearchTypeAction extends TransportAction<SearchRe
             if (TransportActions.isShardNotAvailableException(t)) {
                 return;
             }
-
+            // lazily  有失败的时候再去创建
             // lazily create shard failures, so we can early build the empty shard failure list in most cases (no failures)
             if (shardFailures == null) {
                 synchronized (shardFailuresMutex) {

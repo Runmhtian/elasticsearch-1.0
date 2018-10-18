@@ -64,6 +64,7 @@ import java.util.List;
  */
 public abstract class SearchContext implements Releasable {
 
+    //这种模式  调用cuurent方法  可以直接获取到当前相处的SearchContext对象  context贯穿整个线程  与线程绑定
     private static ThreadLocal<SearchContext> current = new ThreadLocal<SearchContext>();
 
     public static void setCurrent(SearchContext value) {

@@ -38,7 +38,7 @@ import java.util.Set;
 import static org.elasticsearch.action.search.SearchType.*;
 
 /**
- *
+ * 查询入口
  */
 public class TransportSearchAction extends TransportAction<SearchRequest, SearchResponse> {
 
@@ -78,6 +78,7 @@ public class TransportSearchAction extends TransportAction<SearchRequest, Search
 
         this.optimizeSingleShard = componentSettings.getAsBoolean("optimize_single_shard", true);
 
+        //action 为search
         transportService.registerHandler(SearchAction.NAME, new TransportHandler());
     }
 

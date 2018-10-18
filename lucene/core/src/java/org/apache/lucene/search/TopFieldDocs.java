@@ -20,6 +20,8 @@ package org.apache.lucene.search;
 
 /** Represents hits returned by {@link
  * IndexSearcher#search(Query,Filter,int,Sort)}.
+ *
+ * 指定了按照 字段进行排序
  */
 public class TopFieldDocs extends TopDocs {
 

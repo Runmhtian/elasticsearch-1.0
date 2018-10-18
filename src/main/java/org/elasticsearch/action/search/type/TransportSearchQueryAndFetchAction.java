@@ -40,7 +40,7 @@ import java.io.IOException;
 import static org.elasticsearch.action.search.type.TransportSearchHelper.buildScrollId;
 
 /**
- *
+ * query and fetch
  */
 public class TransportSearchQueryAndFetchAction extends TransportSearchTypeAction {
 
@@ -52,6 +52,7 @@ public class TransportSearchQueryAndFetchAction extends TransportSearchTypeActio
 
     @Override
     protected void doExecute(SearchRequest searchRequest, ActionListener<SearchResponse> listener) {
+        // TransportAction execute 调用doExecute
         new AsyncAction(searchRequest, listener).start();
     }
 
@@ -71,6 +72,7 @@ public class TransportSearchQueryAndFetchAction extends TransportSearchTypeActio
             searchService.sendExecuteFetch(node, request, listener);
         }
 
+        //第二阶段
         @Override
         protected void moveToSecondPhase() throws Exception {
             try {
@@ -85,12 +87,17 @@ public class TransportSearchQueryAndFetchAction extends TransportSearchTypeActio
         }
 
         private void innerFinishHim() throws IOException {
+            //这里根据query result来进行排序
             sortedShardList = searchPhaseController.sortDocs(firstResults);
+            // 合并得到查询结果 firstResult 是SearchPhaseResult的子类，QuerySearchResultProvider FetchSearchResultProvider同样是子类
+            //的实例是 QueryFetchSearchResult  实现了QuerySearchResultProvider FetchSearchResultProvider  也就是说firstResults包含了
+            //query和fetch的结果  通过QueryFetchSearchResult实现的接口方法直接拿到对应的result
             final InternalSearchResponse internalResponse = searchPhaseController.merge(sortedShardList, firstResults, firstResults);
             String scrollId = null;
-            if (request.scroll() != null) {
+            if (request.scroll() != null) {//是否有scroll
                 scrollId = buildScrollId(request.searchType(), firstResults, null);
             }
+            //返回结果
             listener.onResponse(new SearchResponse(internalResponse, scrollId, expectedSuccessfulOps, successulOps.get(), buildTookInMillis(), buildShardFailures()));
         }
     }

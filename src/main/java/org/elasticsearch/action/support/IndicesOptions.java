@@ -27,6 +27,7 @@ import org.elasticsearch.rest.RestRequest;
 import java.io.IOException;
 
 /**
+ * 控制当关注的索引不可用时如何处理
  * Controls how to deal when concrete indices are unavailable (closed & missing), to what wildcard expression expand
  * (all, closed or open indices) and how to deal when a wildcard expression resolves into no concrete indices.
  */

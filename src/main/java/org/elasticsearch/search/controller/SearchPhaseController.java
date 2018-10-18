@@ -140,15 +140,15 @@ public class SearchPhaseController extends AbstractComponent {
             return EMPTY_DOCS;
         }
 
-        if (optimizeSingleShard) {
+        if (optimizeSingleShard) {  //默认为true  单分片优化   返回结果只有一个分片的结果有数据  则排序可以优化  直接就是有序的
             boolean canOptimize = false;
-            QuerySearchResult result = null;
+            QuerySearchResult result = null;  //记录有result的分片result
             int shardIndex = -1;
-            if (results.size() == 1) {
+            if (results.size() == 1) {  //只有一个分片
                 canOptimize = true;
                 result = results.get(0).value.queryResult();
                 shardIndex = results.get(0).index;
-            } else {
+            } else {  //不是只有一个分片结果，但是只有一个分片结果 含有doc   也就是每个分片的查询结果ScoreDoc[]大于0
                 // lets see if we only got hits from a single shard, if so, we can optimize...
                 for (AtomicArray.Entry<? extends QuerySearchResultProvider> entry : results) {
                     if (entry.value.queryResult().topDocs().scoreDocs.length > 0) {
@@ -162,9 +162,9 @@ public class SearchPhaseController extends AbstractComponent {
                     }
                 }
             }
-            if (canOptimize) {
+            if (canOptimize) {  //直接单分片返回结果
                 ScoreDoc[] scoreDocs = result.topDocs().scoreDocs;
-                if (scoreDocs.length < result.from()) {
+                if (scoreDocs.length < result.from()) {  //查询的from
                     return EMPTY_DOCS;
                 }
                 int resultDocsSize = result.size();
@@ -193,15 +193,16 @@ public class SearchPhaseController extends AbstractComponent {
 
         @SuppressWarnings("unchecked")
         AtomicArray.Entry<? extends QuerySearchResultProvider>[] sortedResults = results.toArray(new AtomicArray.Entry[results.size()]);
-        Arrays.sort(sortedResults, QUERY_RESULT_ORDERING);
+        Arrays.sort(sortedResults, QUERY_RESULT_ORDERING);  //先按照索引排序
         QuerySearchResultProvider firstResult = sortedResults[0].value;
 
         int totalNumDocs = 0;
 
-        int queueSize = firstResult.queryResult().from() + firstResult.queryResult().size();
-        if (firstResult.includeFetch()) {
+        int queueSize = firstResult.queryResult().from() + firstResult.queryResult().size();  //from+size
+        if (firstResult.includeFetch()) {  //说明是  query and fetch  或者是dfs query and fetch
             // if we did both query and fetch on the same go, we have fetched all the docs from each shards already, use them...
             // this is also important since we shortcut and fetch only docs from "from" and up to "size"
+            //若是query and fetch的话 queue大小应该为   (from+size)*查询分片的个数
             queueSize *= sortedResults.length;
         }
 
@@ -211,7 +212,9 @@ public class SearchPhaseController extends AbstractComponent {
         // it in which case we won't need this logic...
 
         PriorityQueue queue;
-        if (firstResult.queryResult().topDocs() instanceof TopFieldDocs) {
+        if (firstResult.queryResult().topDocs() instanceof TopFieldDocs) {   //结果 按照field 进行排序  若是查询指定了field排序，则lucene返回的结果得分也是按照
+            //字段顺序进行的，因此es这边处理结果的时候也要按照字段进行排序，实际上得分就是排序  若是指定了排序字段  则默认打分机制（匹配度 tfidf）就会无效
+            // 默认打分  也就是相关度排序，  sort 指定排序，  boost改变文档或者文档某个字段的权重
             // sorting, first if the type is a String, chance CUSTOM to STRING so we handle nulls properly (since our CUSTOM String sorting might return null)
             TopFieldDocs fieldDocs = (TopFieldDocs) firstResult.queryResult().topDocs();
             for (int i = 0; i < fieldDocs.fields.length; i++) {
@@ -222,7 +225,7 @@ public class SearchPhaseController extends AbstractComponent {
                         FieldDoc fDoc = (FieldDoc) doc;
                         if (fDoc.fields[i] != null) {
                             allValuesAreNull = false;
-                            if (fDoc.fields[i] instanceof String) {
+                            if (fDoc.fields[i] instanceof String) {   //转换字段类型
                                 fieldDocs.fields[i] = new SortField(fieldDocs.fields[i].getField(), SortField.Type.STRING, fieldDocs.fields[i].getReverse());
                             }
                             resolvedField = true;
@@ -238,22 +241,22 @@ public class SearchPhaseController extends AbstractComponent {
                     fieldDocs.fields[i] = new SortField(fieldDocs.fields[i].getField(), SortField.Type.STRING, fieldDocs.fields[i].getReverse());
                 }
             }
-            queue = new ShardFieldDocSortedHitQueue(fieldDocs.fields, queueSize);
+            queue = new ShardFieldDocSortedHitQueue(fieldDocs.fields, queueSize);  //优先级队列 fields就是优先级队列的排序逻辑
 
             // we need to accumulate for all and then filter the from
-            for (AtomicArray.Entry<? extends QuerySearchResultProvider> entry : sortedResults) {
+            for (AtomicArray.Entry<? extends QuerySearchResultProvider> entry : sortedResults) {  //遍历result
                 QuerySearchResult result = entry.value.queryResult();
                 ScoreDoc[] scoreDocs = result.topDocs().scoreDocs;
                 totalNumDocs += scoreDocs.length;
                 for (ScoreDoc doc : scoreDocs) {
                     doc.shardIndex = entry.index;
-                    if (queue.insertWithOverflow(doc) == doc) {
+                    if (queue.insertWithOverflow(doc) == doc) {   //添加到队列中 若是添加不进去  则break内循环  内循环后边的都添加不进去
                         // filled the queue, break
                         break;
                     }
                 }
             }
-        } else {
+        } else {  //使用 ScoreDocQueue优先级队列  应该是使用score进行排序
             queue = new ScoreDocQueue(queueSize); // we need to accumulate for all and then filter the from
             for (AtomicArray.Entry<? extends QuerySearchResultProvider> entry : sortedResults) {
                 QuerySearchResult result = entry.value.queryResult();
@@ -270,12 +273,12 @@ public class SearchPhaseController extends AbstractComponent {
 
         }
 
-        int resultDocsSize = firstResult.queryResult().size();
+        int resultDocsSize = firstResult.queryResult().size();  //结果
         if (firstResult.includeFetch()) {
             // if we did both query and fetch on the same go, we have fetched all the docs from each shards already, use them...
-            resultDocsSize *= sortedResults.length;
+            resultDocsSize *= sortedResults.length; //size * 查询分片数
         }
-        if (totalNumDocs < queueSize) {
+        if (totalNumDocs < queueSize) {  //结果队列没有满   也就是queue中有totalNumDocs个元素
             resultDocsSize = totalNumDocs - firstResult.queryResult().from();
         }
 
@@ -288,7 +291,7 @@ public class SearchPhaseController extends AbstractComponent {
         ScoreDoc[] shardDocs = new ScoreDoc[resultDocsSize];
         for (int i = resultDocsSize - 1; i >= 0; i--)      // put docs in array
             shardDocs[i] = (ScoreDoc) queue.pop();
-        return shardDocs;
+        return shardDocs;  //返回排序过的 doc
     }
 
     /**
@@ -305,6 +308,7 @@ public class SearchPhaseController extends AbstractComponent {
         }
     }
 
+    //合并得到查询结果
     public InternalSearchResponse merge(ScoreDoc[] sortedDocs, AtomicArray<? extends QuerySearchResultProvider> queryResultsArr, AtomicArray<? extends FetchSearchResultProvider> fetchResultsArr) {
 
         List<? extends AtomicArray.Entry<? extends QuerySearchResultProvider>> queryResults = queryResultsArr.asList();
