@@ -39,6 +39,7 @@ import static org.elasticsearch.common.unit.TimeValue.timeValueSeconds;
 import static org.elasticsearch.transport.TransportRequestOptions.options;
 
 /**
+ * master故障检测
  * A fault detection that pings the master periodically to see if its alive.
  */
 public class MasterFaultDetection extends AbstractComponent {
@@ -153,7 +154,7 @@ public class MasterFaultDetection extends AbstractComponent {
             masterPinger.stop();
         }
         this.masterPinger = new MasterPinger();
-        // start the ping process
+        // start the ping process   定时的去ping master
         threadPool.schedule(pingInterval, ThreadPool.Names.SAME, masterPinger);
     }
 
@@ -210,6 +211,9 @@ public class MasterFaultDetection extends AbstractComponent {
         }
     }
 
+    /**
+     * master 链接不到时 调用listener
+     */
     private void notifyDisconnectedFromMaster() {
         threadPool.generic().execute(new Runnable() {
             @Override
@@ -246,6 +250,9 @@ public class MasterFaultDetection extends AbstractComponent {
         }
     }
 
+    /**
+     * ping master 的runnable
+     */
     private class MasterPinger implements Runnable {
 
         private volatile boolean running = true;
@@ -266,6 +273,8 @@ public class MasterFaultDetection extends AbstractComponent {
                 threadPool.schedule(pingInterval, ThreadPool.Names.SAME, MasterPinger.this);
                 return;
             }
+            // 没有使用pingService 来ping master
+
             transportService.sendRequest(masterToPing, MasterPingRequestHandler.ACTION, new MasterPingRequest(nodesProvider.nodes().localNode().id(), masterToPing.id()), options().withType(TransportRequestOptions.Type.PING).withTimeout(pingRetryTimeout),
                     new BaseTransportResponseHandler<MasterPingResponseResponse>() {
                         @Override
@@ -282,7 +291,7 @@ public class MasterFaultDetection extends AbstractComponent {
                             MasterFaultDetection.this.retryCount = 0;
                             // check if the master node did not get switched on us..., if it did, we simply return with no reschedule
                             if (masterToPing.equals(MasterFaultDetection.this.masterNode())) {
-                                if (!response.connectedToMaster) {
+                                if (!response.connectedToMaster) {  //接受到master响应，但是local 没有和master connected
                                     logger.trace("[master] [{}] does not have us registered with it...", masterToPing);
                                     notifyDisconnectedFromMaster();
                                 }

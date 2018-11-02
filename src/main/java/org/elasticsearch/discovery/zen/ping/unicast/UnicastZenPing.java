@@ -54,7 +54,8 @@ import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.new
 import static org.elasticsearch.discovery.zen.ping.ZenPing.PingResponse.readPingResponse;
 
 /**
- *
+ *  单播
+ *  这种机制  需要配置文件中配置host列表  依赖transport模块来发送request  也就是netty
  */
 public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implements ZenPing {
 
@@ -120,6 +121,11 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
         transportService.registerHandler(UnicastPingRequestHandler.ACTION, new UnicastPingRequestHandler());
     }
 
+
+    /**
+     * 单播 start不用初始化
+     * @throws ElasticsearchException
+     */
     @Override
     protected void doStart() throws ElasticsearchException {
     }
@@ -168,7 +174,8 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
     public void ping(final PingListener listener, final TimeValue timeout) throws ElasticsearchException {
         final SendPingsHandler sendPingsHandler = new SendPingsHandler(pingIdGenerator.incrementAndGet());
         receivedResponses.put(sendPingsHandler.id(), ConcurrentCollections.<DiscoveryNode, PingResponse>newConcurrentMap());
-        sendPings(timeout, null, sendPingsHandler);
+        sendPings(timeout, null, sendPingsHandler);  //一上来就ping
+        //然后定时执行
         threadPool.schedule(TimeValue.timeValueMillis(timeout.millis() / 2), ThreadPool.Names.GENERIC, new Runnable() {
             @Override
             public void run() {
@@ -183,6 +190,7 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
                                 sendPingsHandler.close();
                                 for (DiscoveryNode node : sendPingsHandler.nodeToDisconnect) {
                                     logger.trace("[{}] disconnecting from {}", sendPingsHandler.id(), node);
+                                    // 断开链接
                                     transportService.disconnectFromNode(node);
                                 }
                                 listener.onPing(responses.values().toArray(new PingResponse[responses.size()]));
@@ -259,7 +267,8 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
             final DiscoveryNode nodeToSend = nodeToSendX;
 
             final boolean nodeFoundByAddress = nodeFoundByAddressX;
-            if (!transportService.nodeConnected(nodeToSend)) {
+            //ping
+            if (!transportService.nodeConnected(nodeToSend)) {  //没有连接
                 if (sendPingsHandler.isClosed()) {
                     return;
                 }
@@ -273,6 +282,7 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
                         }
                         boolean success = false;
                         try {
+                            //尝试连接node
                             // connect to the node, see if we manage to do it, if not, bail
                             if (!nodeFoundByAddress) {
                                 logger.trace("[{}] connecting (light) to {}", sendPingsHandler.id(), nodeToSend);
@@ -304,6 +314,7 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
                     }
                 });
             } else {
+//                sendRequest
                 sendPingRequestToNode(sendPingsHandler.id(), timeout, pingRequest, latch, node, nodeToSend);
             }
         }
@@ -318,6 +329,7 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
 
     private void sendPingRequestToNode(final int id, TimeValue timeout, UnicastPingRequest pingRequest, final CountDownLatch latch, final DiscoveryNode node, final DiscoveryNode nodeToSend) {
         logger.trace("[{}] sending to {}", id, nodeToSend);
+        //发送ping求情
         transportService.sendRequest(nodeToSend, UnicastPingRequestHandler.ACTION, pingRequest, TransportRequestOptions.options().withTimeout((long) (timeout.millis() * 1.25)), new BaseTransportResponseHandler<UnicastPingResponse>() {
 
             @Override

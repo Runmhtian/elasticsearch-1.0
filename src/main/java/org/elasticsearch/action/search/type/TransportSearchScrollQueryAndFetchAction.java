@@ -129,14 +129,15 @@ public class TransportSearchScrollQueryAndFetchAction extends AbstractComponent 
             Tuple<String, Long>[] context = scrollId.getContext();
             for (int i = 0; i < context.length; i++) {
                 Tuple<String, Long> target = context[i];
-                DiscoveryNode node = nodes.get(target.v1());
+                DiscoveryNode node = nodes.get(target.v1());   //根据nodeId 获取node
                 if (node != null) {
                     if (nodes.localNodeId().equals(node.id())) {
                         localOperations++;
-                    } else {
+                    } else {  //非本地节点
+                        //target.v2()  是QueryFetchSearchResult  的id   也是SearchPhaseResult   也是searchContext的Id
                         executePhase(i, node, target.v2());
                     }
-                } else {
+                } else {  //若是得不到node  则 successfulOps-1
                     if (logger.isDebugEnabled()) {
                         logger.debug("Node [" + target.v1() + "] not available for scroll request [" + scrollId.getSource() + "]");
                     }
@@ -147,16 +148,17 @@ public class TransportSearchScrollQueryAndFetchAction extends AbstractComponent 
                 }
             }
 
-            if (localOperations > 0) {
+            if (localOperations > 0) {  //查本地分片
                 if (request.operationThreading() == SearchOperationThreading.SINGLE_THREAD) {
                     threadPool.executor(ThreadPool.Names.SEARCH).execute(new Runnable() {
                         @Override
-                        public void run() {
+                        public void run() {  //使用search 执行
                             Tuple<String, Long>[] context1 = scrollId.getContext();
                             for (int i = 0; i < context1.length; i++) {
                                 Tuple<String, Long> target = context1[i];
                                 DiscoveryNode node = nodes.get(target.v1());
                                 if (node != null && nodes.localNodeId().equals(node.id())) {
+                                    //执行阶段
                                     executePhase(i, node, target.v2());
                                 }
                             }
@@ -171,14 +173,14 @@ public class TransportSearchScrollQueryAndFetchAction extends AbstractComponent 
                         final DiscoveryNode node = nodes.get(target.v1());
                         if (node != null && nodes.localNodeId().equals(node.id())) {
                             try {
-                                if (localAsync) {
+                                if (localAsync) {  //每个分片都用多线程去查
                                     threadPool.executor(ThreadPool.Names.SEARCH).execute(new Runnable() {
                                         @Override
                                         public void run() {
                                             executePhase(shardIndex, node, target.v2());
                                         }
                                     });
-                                } else {
+                                } else {  //不使用额外线程
                                     executePhase(shardIndex, node, target.v2());
                                 }
                             } catch (Throwable t) {
@@ -204,11 +206,12 @@ public class TransportSearchScrollQueryAndFetchAction extends AbstractComponent 
             }
         }
 
+        // 执行阶段   shardIndex  是下标
         void executePhase(final int shardIndex, DiscoveryNode node, final long searchId) {
             searchService.sendExecuteFetch(node, internalScrollSearchRequest(searchId, request), new SearchServiceListener<QueryFetchSearchResult>() {
                 @Override
                 public void onResult(QueryFetchSearchResult result) {
-                    queryFetchResults.set(shardIndex, result);
+                    queryFetchResults.set(shardIndex, result);  //set result
                     if (counter.decrementAndGet() == 0) {
                         finishHim();
                     }

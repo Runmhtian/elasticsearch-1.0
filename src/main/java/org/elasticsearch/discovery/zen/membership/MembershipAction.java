@@ -163,6 +163,7 @@ public class MembershipAction extends AbstractComponent {
         public void messageReceived(JoinRequest request, TransportChannel channel) throws Exception {
             ClusterState clusterState = listener.onJoin(request.node);
             if (request.withClusterState) {
+                // join 请求 加入成功，返回响应   clusterState
                 channel.sendResponse(new JoinResponse(clusterState));
             } else {
                 channel.sendResponse(TransportResponse.Empty.INSTANCE);

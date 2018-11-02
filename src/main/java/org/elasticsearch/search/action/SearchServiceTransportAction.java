@@ -368,6 +368,7 @@ public class SearchServiceTransportAction extends AbstractComponent {
         }
     }
 
+    // scroll query fetch
     public void sendExecuteFetch(DiscoveryNode node, final InternalScrollSearchRequest request, final SearchServiceListener<QueryFetchSearchResult> listener) {
         if (clusterService.state().nodes().localNodeId().equals(node.id())) {
             try {
@@ -401,7 +402,7 @@ public class SearchServiceTransportAction extends AbstractComponent {
             });
         }
     }
-
+    //fetch 执行
     public void sendExecuteFetch(DiscoveryNode node, final FetchSearchRequest request, final SearchServiceListener<FetchSearchResult> listener) {
         if (clusterService.state().nodes().localNodeId().equals(node.id())) {
             try {
@@ -435,7 +436,7 @@ public class SearchServiceTransportAction extends AbstractComponent {
             });
         }
     }
-
+    //scan
     public void sendExecuteScan(DiscoveryNode node, final ShardSearchRequest request, final SearchServiceListener<QuerySearchResult> listener) {
         if (clusterService.state().nodes().localNodeId().equals(node.id())) {
             try {
@@ -473,6 +474,7 @@ public class SearchServiceTransportAction extends AbstractComponent {
     public void sendExecuteScan(DiscoveryNode node, final InternalScrollSearchRequest request, final SearchServiceListener<QueryFetchSearchResult> listener) {
         if (clusterService.state().nodes().localNodeId().equals(node.id())) {
             try {
+                //执行查询
                 ScrollQueryFetchSearchResult result = searchService.executeScan(request);
                 listener.onResult(result.result());
             } catch (Throwable e) {

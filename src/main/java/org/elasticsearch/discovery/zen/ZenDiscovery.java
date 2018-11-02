@@ -83,6 +83,9 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
     private AllocationService allocationService;
     private final ClusterName clusterName;
     private final DiscoveryNodeService discoveryNodeService;
+    /**
+     * 节点心跳
+     */
     private final ZenPingService pingService;
     private final MasterFaultDetection masterFD;
     private final NodesFaultDetection nodesFD;
@@ -96,6 +99,9 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
     // a flag that should be used only for testing
     private final boolean sendLeaveRequest;
 
+    /**
+     * 节点选举
+     */
     private final ElectMasterService electMaster;
 
     private final boolean masterElectionFilterClientNodes;
@@ -149,10 +155,11 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
         this.nodesFD = new NodesFaultDetection(settings, threadPool, transportService);
         this.nodesFD.addListener(new NodeFailureListener());
 
+        //初始化 发布集群状态
         this.publishClusterState = new PublishClusterStateAction(settings, transportService, this, new NewClusterStateListener());
         this.pingService.setNodesProvider(this);
         this.membership = new MembershipAction(settings, transportService, this, new MembershipListener());
-
+        //注册重新加入集群的 handler和action
         transportService.registerHandler(RejoinClusterRequestHandler.ACTION, new RejoinClusterRequestHandler());
     }
 
@@ -168,15 +175,21 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
 
     @Override
     protected void doStart() throws ElasticsearchException {
+        //根据配置文件 得到当前节点的  节点配置
         Map<String, String> nodeAttributes = discoveryNodeService.buildAttributes();
         // note, we rely on the fact that its a new id each time we start, see FD and "kill -9" handling
+        // 随机生成一个nodeId
         final String nodeId = DiscoveryService.generateNodeId(settings);
+        // new DiscoveryNode
         localNode = new DiscoveryNode(settings.get("name"), nodeId, transportService.boundAddress().publishAddress(), nodeAttributes, version);
         latestDiscoNodes = new DiscoveryNodes.Builder().put(localNode).localNodeId(localNode.id()).build();
+        // 加入到故障检测
         nodesFD.updateNodes(latestDiscoNodes);
+        //开始 ping服务
         pingService.start();
 
         // do the join on a different thread, the DiscoveryService waits for 30s anyhow till it is discovered
+        // 异步加入集群，DiscoveryService无论如何都会等待30秒才会被发现  新节点启动 会选举新的master
         asyncJoinCluster();
     }
 
@@ -261,6 +274,11 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
         return this.nodeService;
     }
 
+    /**
+     * 集群状态改变时  调用
+     * @param clusterState
+     * @param ackListener
+     */
     @Override
     public void publish(ClusterState clusterState, AckListener ackListener) {
         if (!master) {
@@ -290,6 +308,9 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
         });
     }
 
+    /**
+     * 加入集群
+     */
     private void innerJoinCluster() {
         boolean retry = true;
         while (retry) {
@@ -297,14 +318,17 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
                 return;
             }
             retry = false;
+            // 得到 master节点，可能是选举得到的也可能是ping
             DiscoveryNode masterNode = findMaster();
             if (masterNode == null) {
                 logger.trace("no masterNode returned");
                 retry = true;
                 continue;
             }
+            //若是本地节点被选为 master
             if (localNode.equals(masterNode)) {
                 this.master = true;
+                //开启普通节点故障检测
                 nodesFD.start(); // start the nodes FD
                 clusterService.submitStateUpdateTask("zen-disco-join (elected_as_master)", Priority.URGENT, new ProcessedClusterStateUpdateTask() {
                     @Override
@@ -315,6 +339,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
                                         // put our local node
                                 .put(localNode);
                         // update the fact that we are the master...
+                        //初始化 DiscoveryNodes
                         latestDiscoNodes = builder.build();
                         ClusterBlocks clusterBlocks = ClusterBlocks.builder().blocks(currentState.blocks()).removeGlobalBlock(NO_MASTER_BLOCK).build();
                         return ClusterState.builder(currentState).nodes(latestDiscoNodes).blocks(clusterBlocks).build();
@@ -330,7 +355,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
                         sendInitialStateEventIfNeeded();
                     }
                 });
-            } else {
+            } else {  //local 不是master
                 this.master = false;
                 try {
                     // first, make sure we can connect to the master
@@ -342,6 +367,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
                 }
                 // send join request
                 try {
+                    //发送请求加入
                     membership.sendJoinRequestBlocking(masterNode, localNode, pingTimeout);
                 } catch (Exception e) {
                     if (e instanceof ElasticsearchException) {
@@ -356,6 +382,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
                     retry = true;
                     continue;
                 }
+                // master故障检测
                 masterFD.start(masterNode, "initial_join");
                 // no need to submit the received cluster state, we will get it from the master when it publishes
                 // the fact that we joined
@@ -394,6 +421,11 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
         }
     }
 
+    /**
+     * 非master节点故障时调用
+     * @param node
+     * @param reason
+     */
     private void handleNodeFailure(final DiscoveryNode node, String reason) {
         if (lifecycleState() != Lifecycle.State.STARTED) {
             // not started, ignore a node failure
@@ -464,6 +496,11 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
         });
     }
 
+    /**
+     * master Node 故障时调用
+     * @param masterNode
+     * @param reason
+     */
     private void handleMasterGone(final DiscoveryNode masterNode, final String reason) {
         if (lifecycleState() != Lifecycle.State.STARTED) {
             // not started, ignore a master failure
@@ -690,6 +727,11 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
         }
     }
 
+    /**
+     * master 接受到其他节点的加入请求
+     * @param node
+     * @return
+     */
     private ClusterState handleJoinRequest(final DiscoveryNode node) {
         if (!master) {
             throw new ElasticsearchIllegalStateException("Node [" + localNode + "] not master for join request from [" + node + "]");
@@ -705,7 +747,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
             state = clusterService.state();
 
             // validate the join request, will throw a failure if it fails, which will get back to the
-            // node calling the join request
+            // node calling the join request  发送验证请求
             membership.sendValidateJoinRequestBlocking(node, state, pingTimeout);
 
             clusterService.submitStateUpdateTask("zen-disco-receive(join from node[" + node + "])", Priority.URGENT, new ClusterStateUpdateTask() {
@@ -717,6 +759,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
                         // still send a new cluster state, so it will be re published and possibly update the other node
                         return ClusterState.builder(currentState).build();
                     }
+                    //将此节点添加到  DiscoveryNodes中
                     DiscoveryNodes.Builder builder = DiscoveryNodes.builder(currentState.nodes());
                     for (DiscoveryNode existingNode : currentState.nodes()) {
                         if (node.address().equals(existingNode.address())) {
@@ -738,7 +781,14 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
         return state;
     }
 
+    /**
+     * 选举 master节点   选举节点时使用的是pingService
+     *
+     * 故障检测  使用transport
+     * @return
+     */
     private DiscoveryNode findMaster() {
+        //ping 其他节点
         ZenPing.PingResponse[] fullPingResponses = pingService.pingAndWait(pingTimeout);
         if (fullPingResponses == null) {
             logger.trace("No full ping responses");
@@ -759,7 +809,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
         // filter responses
         List<ZenPing.PingResponse> pingResponses = Lists.newArrayList();
         for (ZenPing.PingResponse pingResponse : fullPingResponses) {
-            DiscoveryNode node = pingResponse.target();
+            DiscoveryNode node = pingResponse.target();  // ping的目标节点
             if (masterElectionFilterClientNodes && (node.clientNode() || (!node.masterNode() && !node.dataNode()))) {
                 // filter out the client node, which is a client node, or also one that is not data and not master (effectively, client)
             } else if (masterElectionFilterDataNodes && (!node.masterNode() && node.dataNode())) {
@@ -780,6 +830,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
             }
             logger.debug(sb.toString());
         }
+        //ping 得到的可能的master
         List<DiscoveryNode> pingMasters = newArrayList();
         for (ZenPing.PingResponse pingResponse : pingResponses) {
             if (pingResponse.master() != null) {
@@ -858,6 +909,8 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
         }
     }
 
+
+    // 处理 join leave请求
     private class MembershipListener implements MembershipAction.MembershipListener {
         @Override
         public ClusterState onJoin(DiscoveryNode node) {
@@ -878,18 +931,31 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
         }
     }
 
+
+    /**
+     * master 链接不到是会调用MasterNodeFailureListener中的onDisconnectedFromMaster 方法
+     */
     private class MasterNodeFailureListener implements MasterFaultDetection.Listener {
 
+        /**
+         *  连接master 节点出现异常
+         * @param masterNode
+         * @param reason
+         */
         @Override
         public void onMasterFailure(DiscoveryNode masterNode, String reason) {
             handleMasterGone(masterNode, reason);
         }
 
+        /**
+         * 能够连接到master，但是还没有join
+         */
         @Override
         public void onDisconnectedFromMaster() {
             // got disconnected from the master, send a join request
             DiscoveryNode masterNode = latestDiscoNodes.masterNode();
             try {
+                //再次发送加入请求
                 membership.sendJoinRequest(masterNode, localNode);
             } catch (Exception e) {
                 logger.warn("failed to send join request on disconnection from master [{}]", masterNode);

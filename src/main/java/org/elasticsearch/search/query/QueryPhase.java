@@ -90,32 +90,36 @@ public class QueryPhase implements SearchPhase {
         facetPhase.preProcess(context);
         aggregationPhase.preProcess(context);
     }
-
+    //query 阶段
     public void execute(SearchContext searchContext) throws QueryPhaseExecutionException {
         searchContext.queryResult().searchTimedOut(false);
 
-        searchContext.searcher().inStage(ContextIndexSearcher.Stage.MAIN_QUERY);
+        searchContext.searcher().inStage(ContextIndexSearcher.Stage.MAIN_QUERY);  //stage
         boolean rescore = false;
         try {
-            searchContext.queryResult().from(searchContext.from());
+            searchContext.queryResult().from(searchContext.from());   // 初始化queryResult中的from 和size
             searchContext.queryResult().size(searchContext.size());
 
-            Query query = searchContext.query();
+            Query query = searchContext.query();  //获取查询Query
 
             TopDocs topDocs;
             int numDocs = searchContext.from() + searchContext.size();
 
-            if (searchContext.searchType() == SearchType.COUNT || numDocs == 0) {
+            // 根据不同的查询类型调用  lucene api
+            if (searchContext.searchType() == SearchType.COUNT || numDocs == 0) {  //count   scan第一次也是count
+                //这个collector  只计数  collector 是lucene查询 收集结果 接口
                 TotalHitCountCollector collector = new TotalHitCountCollector();
+                //调用lucene
                 searchContext.searcher().search(query, collector);
                 topDocs = new TopDocs(collector.getTotalHits(), Lucene.EMPTY_SCORE_DOCS, 0);
-            } else if (searchContext.searchType() == SearchType.SCAN) {
+            } else if (searchContext.searchType() == SearchType.SCAN) {   //scan
                 topDocs = searchContext.scanContext().execute(searchContext);
-            } else if (searchContext.sort() != null) {
+            } else if (searchContext.sort() != null) {  // 是否需要排序
+                //调用lucene   numdocs 等于from+size   而scan的话，返回结果可以直接从from开始
                 topDocs = searchContext.searcher().search(query, null, numDocs, searchContext.sort(),
                         searchContext.trackScores(), searchContext.trackScores());
             } else {
-                if (searchContext.rescore() != null) {
+                if (searchContext.rescore() != null) {  //重打分
                     rescore = true;
                     numDocs = Math.max(searchContext.rescore().window(), numDocs);
                 }
@@ -132,6 +136,7 @@ public class QueryPhase implements SearchPhase {
         }
         suggestPhase.execute(searchContext);
         facetPhase.execute(searchContext);
+        //聚合
         aggregationPhase.execute(searchContext);
     }
 }

@@ -37,7 +37,7 @@ import static org.elasticsearch.action.search.type.ParsedScrollId.*;
 import static org.elasticsearch.action.search.type.TransportSearchHelper.parseScrollId;
 
 /**
- *
+ * scroll  先调用普通search TransportSearchAction  生成scrollId，返回数据，下次在请求  将会携带scrollId  直接通过TransportSearchScrollAction
  */
 public class TransportSearchScrollAction extends TransportAction<SearchScrollRequest, SearchResponse> {
 
@@ -57,9 +57,9 @@ public class TransportSearchScrollAction extends TransportAction<SearchScrollReq
         this.queryAndFetchAction = queryAndFetchAction;
         this.scanAction = scanAction;
 
-        transportService.registerHandler(SearchScrollAction.NAME, new TransportHandler());
+        transportService.registerHandler(SearchScrollAction.NAME, new TransportHandler());  //scroll 注册
     }
-
+    //入口
     @Override
     protected void doExecute(SearchScrollRequest request, ActionListener<SearchResponse> listener) {
         try {

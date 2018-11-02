@@ -39,6 +39,7 @@ import java.util.Map;
  */
 public class ScanContext {
 
+    // 每个reader  对应一个readerState  count
     private final Map<IndexReader, ReaderState> readerStates = Maps.newHashMap();
 
     public void clear() {
@@ -47,15 +48,16 @@ public class ScanContext {
 
     public TopDocs execute(SearchContext context) throws IOException {
         ScanCollector collector = new ScanCollector(readerStates, context.from(), context.size(), context.trackScores());
-        Query query = new XFilteredQuery(context.query(), new ScanFilter(readerStates, collector));
+        Query query = new XFilteredQuery(context.query(), new ScanFilter(readerStates, collector));  //query封装
         try {
-            context.searcher().search(query, collector);
+            context.searcher().search(query, collector);  //调用lucene api
         } catch (ScanCollector.StopCollectingException e) {
             // all is well
         }
         return collector.topDocs();
     }
 
+    // scan
     static class ScanCollector extends Collector {
 
         private final Map<IndexReader, ReaderState> readerStates;
@@ -66,13 +68,13 @@ public class ScanContext {
 
         private final ArrayList<ScoreDoc> docs;
 
-        private final boolean trackScores;
+        private final boolean trackScores;  //是否跟踪得分
 
         private Scorer scorer;
 
-        private int docBase;
+        private int docBase;  //文档id 基数
 
-        private int counter;
+        private int counter;  // 每次初始值为0
 
         private IndexReader currentReader;
         private ReaderState readerState;
@@ -89,6 +91,7 @@ public class ScanContext {
             this.counter += count;
         }
 
+        //result
         public TopDocs topDocs() {
             return new TopDocs(docs.size(), docs.toArray(new ScoreDoc[docs.size()]), 0f);
         }
@@ -100,16 +103,20 @@ public class ScanContext {
 
         @Override
         public void collect(int doc) throws IOException {
-            if (counter >= from) {
+            if (counter >= from) {  //每次从from 起 开始添加
                 docs.add(new ScoreDoc(docBase + doc, trackScores ? scorer.score() : 0f));
             }
-            readerState.count++;
-            counter++;
+            readerState.count++;  //总count
+            counter++;  // 此次
             if (counter >= to) {
                 throw StopCollectingException;
             }
         }
+        /*
+        lucene 每个AtomicReaderContext调用   实现的collector 需要拿  base
 
+        这里也初始化了  readerState
+         */
         @Override
         public void setNextReader(AtomicReaderContext context) throws IOException {
             // if we have a reader state, and we haven't registered one already, register it
@@ -140,6 +147,7 @@ public class ScanContext {
         }
     }
 
+    //filter
     public static class ScanFilter extends Filter {
 
         private final Map<IndexReader, ReaderState> readerStates;

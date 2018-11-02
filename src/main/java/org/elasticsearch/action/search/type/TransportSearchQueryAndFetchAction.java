@@ -94,7 +94,7 @@ public class TransportSearchQueryAndFetchAction extends TransportSearchTypeActio
             //query和fetch的结果  通过QueryFetchSearchResult实现的接口方法直接拿到对应的result
             final InternalSearchResponse internalResponse = searchPhaseController.merge(sortedShardList, firstResults, firstResults);
             String scrollId = null;
-            if (request.scroll() != null) {//是否有scroll
+            if (request.scroll() != null) {//是否有scroll  生成scrollId
                 scrollId = buildScrollId(request.searchType(), firstResults, null);
             }
             //返回结果

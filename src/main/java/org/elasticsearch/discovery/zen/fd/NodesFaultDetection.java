@@ -40,6 +40,7 @@ import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.new
 import static org.elasticsearch.transport.TransportRequestOptions.options;
 
 /**
+ * 多个节点 故障检测
  * A fault detection of multiple nodes.
  */
 public class NodesFaultDetection extends AbstractComponent {
@@ -119,6 +120,7 @@ public class NodesFaultDetection extends AbstractComponent {
             }
             if (!nodesFD.containsKey(newNode)) {
                 nodesFD.put(newNode, new NodeFD());
+                // master启动对新加入的节点的定时ping任务
                 threadPool.schedule(pingInterval, ThreadPool.Names.SAME, new SendPingRequest(newNode));
             }
         }
@@ -200,6 +202,7 @@ public class NodesFaultDetection extends AbstractComponent {
             if (!running) {
                 return;
             }
+            // ping node
             transportService.sendRequest(node, PingRequestHandler.ACTION, new PingRequest(node.id()), options().withType(TransportRequestOptions.Type.PING).withTimeout(pingRetryTimeout),
                     new BaseTransportResponseHandler<PingResponse>() {
                         @Override

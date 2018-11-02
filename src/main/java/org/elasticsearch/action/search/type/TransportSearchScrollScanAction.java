@@ -45,7 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.elasticsearch.action.search.type.TransportSearchHelper.internalScrollSearchRequest;
 
 /**
- *
+ * scan  scroll
  */
 public class TransportSearchScrollScanAction extends AbstractComponent {
 
@@ -95,7 +95,7 @@ public class TransportSearchScrollScanAction extends AbstractComponent {
             this.nodes = clusterService.state().nodes();
             this.successfulOps = new AtomicInteger(scrollId.getContext().length);
             this.counter = new AtomicInteger(scrollId.getContext().length);
-
+            // query 返回结果的分片个数
             this.queryFetchResults = new AtomicArray<QueryFetchSearchResult>(scrollId.getContext().length);
         }
 
@@ -121,7 +121,7 @@ public class TransportSearchScrollScanAction extends AbstractComponent {
         }
 
         public void start() {
-            if (scrollId.getContext().length == 0) {
+            if (scrollId.getContext().length == 0) { //没有result
                 final InternalSearchResponse internalResponse = new InternalSearchResponse(new InternalSearchHits(InternalSearchHits.EMPTY, Long.parseLong(this.scrollId.getAttributes().get("total_hits")), 0.0f), null, null, null, false);
                 listener.onResponse(new SearchResponse(internalResponse, request.scrollId(), 0, 0, 0l, buildShardFailures()));
                 return;
@@ -131,11 +131,12 @@ public class TransportSearchScrollScanAction extends AbstractComponent {
             Tuple<String, Long>[] context = scrollId.getContext();
             for (int i = 0; i < context.length; i++) {
                 Tuple<String, Long> target = context[i];
-                DiscoveryNode node = nodes.get(target.v1());
+                DiscoveryNode node = nodes.get(target.v1());// 根据nodeId 获取node
                 if (node != null) {
                     if (nodes.localNodeId().equals(node.id())) {
                         localOperations++;
                     } else {
+                        //target.v2()  为上一次结果 firstPhaseResult的result的id
                         executePhase(i, node, target.v2());
                     }
                 } else {
@@ -245,13 +246,13 @@ public class TransportSearchScrollScanAction extends AbstractComponent {
                 listener.onFailure(failure);
             }
         }
-
+        //对比 其他  没有sort的过程
         private void innerFinishHim() throws IOException {
             int numberOfHits = 0;
             for (AtomicArray.Entry<QueryFetchSearchResult> entry : queryFetchResults.asList()) {
                 numberOfHits += entry.value.queryResult().topDocs().scoreDocs.length;
             }
-            ScoreDoc[] docs = new ScoreDoc[numberOfHits];
+            ScoreDoc[] docs = new ScoreDoc[numberOfHits]; //返回的结果 可能是size*n
             int counter = 0;
             for (AtomicArray.Entry<QueryFetchSearchResult> entry : queryFetchResults.asList()) {
                 ScoreDoc[] scoreDocs = entry.value.queryResult().topDocs().scoreDocs;

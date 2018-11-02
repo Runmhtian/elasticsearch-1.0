@@ -26,6 +26,8 @@ import java.util.concurrent.TimeUnit;
 
 
 /**
+ * 用来master 发布时  处理其他节点的响应   CountDownLatch 来保证都成功
+ *
  * Default implementation of {@link ClusterStatePublishResponseHandler}, allows to  await a reply
  * to a cluster state publish from all non master nodes, up to a timeout
  */

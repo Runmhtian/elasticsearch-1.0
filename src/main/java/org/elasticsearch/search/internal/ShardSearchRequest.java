@@ -49,6 +49,9 @@ import static org.elasticsearch.search.Scroll.readScroll;
  *  }
  * }
  * </pre>
+ *
+ * 接受到的是请求类的  searchRequest  ，后边封装成  shardRequest
+ *
  */
 public class ShardSearchRequest extends TransportRequest {
 
@@ -66,6 +69,7 @@ public class ShardSearchRequest extends TransportRequest {
 
     private String[] filteringAliases;
 
+    // 查询相关的信息  在这两个字段里  query  from  size
     private BytesReference source;
     private BytesReference extraSource;
 

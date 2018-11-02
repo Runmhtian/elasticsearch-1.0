@@ -57,7 +57,7 @@ public abstract class TransportSearchHelper {
     public static InternalScrollSearchRequest internalScrollSearchRequest(long id, SearchScrollRequest request) {
         return new InternalScrollSearchRequest(request, id);
     }
-
+    //scrollId 包含了  searchType  和第一次查询的 一些信息   分片结果size，查询结果id 节点信息
     public static String buildScrollId(SearchType searchType, AtomicArray<? extends SearchPhaseResult> searchPhaseResults, @Nullable Map<String, String> attributes) throws IOException {
         if (searchType == SearchType.DFS_QUERY_THEN_FETCH || searchType == SearchType.QUERY_THEN_FETCH) {
             return buildScrollId(ParsedScrollId.QUERY_THEN_FETCH_TYPE, searchPhaseResults, attributes);
@@ -91,6 +91,7 @@ public abstract class TransportSearchHelper {
         return Base64.encodeBytes(bytesRef.bytes, bytesRef.offset, bytesRef.length, Base64.URL_SAFE);
     }
 
+    //解析scrollId
     public static ParsedScrollId parseScrollId(String scrollId) {
         CharsRef spare = new CharsRef();
         try {
@@ -105,12 +106,12 @@ public abstract class TransportSearchHelper {
         }
 
         int index = 0;
-        String type = elements[index++];
+        String type = elements[index++];  //searchPhaseResults.asList().size()
         int contextSize = Integer.parseInt(elements[index++]);
         if (elements.length < contextSize + 2) {
             throw new ElasticsearchIllegalArgumentException("Malformed scrollId [" + scrollId + "]");
         }
-
+        //searchPhaseResult.shardTarget().nodeId()  searchPhaseResult.id()
         @SuppressWarnings({"unchecked"}) Tuple<String, Long>[] context = new Tuple[contextSize];
         for (int i = 0; i < contextSize; i++) {
             String element = elements[index++];

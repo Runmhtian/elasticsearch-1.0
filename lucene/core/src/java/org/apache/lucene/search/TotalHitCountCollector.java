@@ -21,6 +21,9 @@ import org.apache.lucene.index.AtomicReaderContext;
 
 /**
  * Just counts the total number of hits.
+ *
+ * 只计算中命中数
+ *
  */
 
 public class TotalHitCountCollector extends Collector {

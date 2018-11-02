@@ -47,6 +47,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
+ * 对MulticastZenPing   和UnicastZenPing 封装
+ *
+ * 在选举新的master 时， 调用此服务，来ping 所有其他节点
  *
  */
 public class ZenPingService extends AbstractLifecycleComponent<ZenPing> implements ZenPing {

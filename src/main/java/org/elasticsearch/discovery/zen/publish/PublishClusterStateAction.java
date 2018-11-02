@@ -82,6 +82,11 @@ public class PublishClusterStateAction extends AbstractComponent {
         publish(clusterState, new AckClusterStatePublishResponseHandler(clusterState.nodes().size() - 1, ackListener));
     }
 
+    /**
+     * 发布集群状态 到其他节点  只有master才会调用
+     * @param clusterState
+     * @param publishResponseHandler
+     */
     private void publish(ClusterState clusterState, final ClusterStatePublishResponseHandler publishResponseHandler) {
 
         DiscoveryNode localNode = nodesProvider.nodes().localNode();
@@ -140,6 +145,7 @@ public class PublishClusterStateAction extends AbstractComponent {
         if (publishTimeout.millis() > 0) {
             // only wait if the publish timeout is configured...
             try {
+                // 等待timeout 时间  其他node响应
                 boolean awaited = publishResponseHandler.awaitAllNodes(publishTimeout);
                 if (!awaited) {
                     logger.debug("awaiting all nodes to process published state {} timed out, timeout {}", clusterState.version(), publishTimeout);

@@ -40,7 +40,7 @@ import static com.google.common.collect.Maps.newHashMap;
 public abstract class FieldsVisitor extends StoredFieldVisitor {
 
     protected BytesReference source;
-    protected Uid uid;
+    protected Uid uid;  // 文档uid
     protected Map<String, List<Object>> fieldsValues;
 
     public void postProcess(MapperService mapperService) {

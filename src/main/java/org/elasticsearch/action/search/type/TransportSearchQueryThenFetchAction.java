@@ -75,14 +75,18 @@ public class TransportSearchQueryThenFetchAction extends TransportSearchTypeActi
             return "query";
         }
 
+        //query
         @Override
         protected void sendExecuteFirstPhase(DiscoveryNode node, ShardSearchRequest request, SearchServiceListener<QuerySearchResult> listener) {
             searchService.sendExecuteQuery(node, request, listener);
         }
 
+        //第二阶段
         @Override
         protected void moveToSecondPhase() {
+            //sort
             sortedShardList = searchPhaseController.sortDocs(firstResults);
+            // 需要获取的docIds
             searchPhaseController.fillDocIdsToLoad(docIdsToLoad, sortedShardList);
 
             if (docIdsToLoad.asList().isEmpty()) {
@@ -100,6 +104,8 @@ public class TransportSearchQueryThenFetchAction extends TransportSearchTypeActi
                     localOperations++;
                 } else {
                     FetchSearchRequest fetchSearchRequest = new FetchSearchRequest(request, queryResult.id(), entry.value);
+
+                    //排序完去fetch
                     executeFetch(entry.index, queryResult.shardTarget(), counter, fetchSearchRequest, node);
                 }
             }
@@ -146,6 +152,7 @@ public class TransportSearchQueryThenFetchAction extends TransportSearchTypeActi
             }
         }
 
+        // 排序后执行fetch
         void executeFetch(final int shardIndex, final SearchShardTarget shardTarget, final AtomicInteger counter, final FetchSearchRequest fetchSearchRequest, DiscoveryNode node) {
             searchService.sendExecuteFetch(node, fetchSearchRequest, new SearchServiceListener<FetchSearchResult>() {
                 @Override

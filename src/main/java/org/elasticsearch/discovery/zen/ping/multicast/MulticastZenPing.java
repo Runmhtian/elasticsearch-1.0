@@ -56,6 +56,23 @@ import static org.elasticsearch.common.util.concurrent.ConcurrentCollections.new
 import static org.elasticsearch.common.util.concurrent.EsExecutors.daemonThreadFactory;
 
 /**
+ *  MulticastSocket   udp
+ *  多播 各个机器配置统一的  group port 就可以运行  不依赖host列表  也就是说加新机器容易
+ *
+ *  使用java net包下的MulticastSocket来实现，不依赖transport
+ *
+ *  udp面向无连接
+ *
+ *  发送的请求，在接收到后  直接使用Channel 的Api来进行响应
+ *
+ *  这里都是使用sendRequest来交换数据。
+ *
+ *  MulticastSocket  send  receive
+ *  对比socket api
+ *  tcp中  使用Stream 来传送数据，inputStream  outputStream   因为是tcp是面向连接的
+ *
+ *  udp  send发送，receive 接收，无连接
+ *
  *
  */
 public class MulticastZenPing extends AbstractLifecycleComponent<ZenPing> implements ZenPing {
@@ -161,7 +178,7 @@ public class MulticastZenPing extends AbstractLifecycleComponent<ZenPing> implem
             multicastSocket.setSoTimeout(60000);
 
             this.multicastSocket = multicastSocket;
-
+            //  开启接收  多播消息的线程
             this.receiver = new Receiver();
             this.receiverThread = daemonThreadFactory(settings, "discovery#multicast#receiver").newThread(receiver);
             this.receiverThread.start();
@@ -256,6 +273,10 @@ public class MulticastZenPing extends AbstractLifecycleComponent<ZenPing> implem
         });
     }
 
+    /**
+     向多播组 发送ping请求，所有其他成员都能够收到
+     *
+     */
     private void sendPingRequest(int id) {
         if (multicastSocket == null) {
             return;
@@ -505,6 +526,10 @@ public class MulticastZenPing extends AbstractLifecycleComponent<ZenPing> implem
             }
         }
 
+        /**
+         *
+         处理ping请求，节点收到多播组的其他成员发送的ping请求时，都会调用次方法
+         */
         private void handleNodePingRequest(int id, DiscoveryNode requestingNodeX, ClusterName clusterName) {
             if (!pingEnabled) {
                 return;
@@ -544,6 +569,7 @@ public class MulticastZenPing extends AbstractLifecycleComponent<ZenPing> implem
                         // connect to the node if possible
                         try {
                             transportService.connectToNode(requestingNode);
+                            // 发送响应请求   多播 udp  没有channel  可以直接适用channel发送，面向无连接的
                             transportService.sendRequest(requestingNode, MulticastPingResponseRequestHandler.ACTION, multicastPingResponse, new EmptyTransportResponseHandler(ThreadPool.Names.SAME) {
                                 @Override
                                 public void handleException(TransportException exp) {

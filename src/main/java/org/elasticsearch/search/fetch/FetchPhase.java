@@ -81,15 +81,16 @@ public class FetchPhase implements SearchPhase {
     public void preProcess(SearchContext context) {
     }
 
+    //fetch  各个searchType 的fetch阶段 类似   根据id 取doc
     public void execute(SearchContext context) {
         FieldsVisitor fieldsVisitor;
         List<String> extractFieldNames = null;
 
-        if (!context.hasFieldNames()) {
-            if (context.hasPartialFields()) {
+        if (!context.hasFieldNames()) {  // field
+            if (context.hasPartialFields()) {  //指定字段
                 // partial fields need the source, so fetch it
                 fieldsVisitor = new UidAndSourceFieldsVisitor();
-            } else {
+            } else {//返回source字段
                 // no fields specified, default to return source if no explicit indication
                 if (!context.hasScriptFields() && !context.hasFetchSourceContext()) {
                     context.fetchSourceContext(new FetchSourceContext(true));
@@ -148,14 +149,15 @@ public class FetchPhase implements SearchPhase {
             }
         }
 
-        InternalSearchHit[] hits = new InternalSearchHit[context.docIdsToLoadSize()];
+        InternalSearchHit[] hits = new InternalSearchHit[context.docIdsToLoadSize()];//初始化查询结果hit
         FetchSubPhase.HitContext hitContext = new FetchSubPhase.HitContext();
         for (int index = 0; index < context.docIdsToLoadSize(); index++) {
             int docId = context.docIdsToLoad()[context.docIdsToLoadFrom() + index];
 
-            loadStoredFields(context, fieldsVisitor, docId);
+            loadStoredFields(context, fieldsVisitor, docId);  //根据文档id 去获取storedField
             fieldsVisitor.postProcess(context.mapperService());
 
+            // key field  value InternalSearchHitField对象
             Map<String, SearchHitField> searchFields = null;
             if (!fieldsVisitor.fields().isEmpty()) {
                 searchFields = new HashMap<String, SearchHitField>(fieldsVisitor.fields().size());
@@ -218,14 +220,14 @@ public class FetchPhase implements SearchPhase {
                 fetchSubPhase.hitsExecute(context, hits);
             }
         }
-
+        //将fetch的结果  保存到 context中
         context.fetchResult().hits(new InternalSearchHits(hits, context.queryResult().topDocs().totalHits, context.queryResult().topDocs().getMaxScore()));
     }
 
     private void loadStoredFields(SearchContext context, FieldsVisitor fieldVisitor, int docId) {
         fieldVisitor.reset();
         try {
-            context.searcher().doc(docId, fieldVisitor);
+            context.searcher().doc(docId, fieldVisitor); //调用lucene api根据文档id 获取文档   结果放在了FieldsVisitor中
         } catch (IOException e) {
             throw new FetchPhaseExecutionException(context, "Failed to fetch doc id [" + docId + "]", e);
         }

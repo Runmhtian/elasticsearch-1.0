@@ -65,11 +65,13 @@ public class TransportSearchScanAction extends TransportSearchTypeAction {
 
         @Override
         protected void sendExecuteFirstPhase(DiscoveryNode node, ShardSearchRequest request, SearchServiceListener<QuerySearchResult> listener) {
+            //scan 第一阶段
             searchService.sendExecuteScan(node, request, listener);
         }
 
         @Override
         protected void moveToSecondPhase() throws Exception {
+            //fetchResult为 empty
             final InternalSearchResponse internalResponse = searchPhaseController.merge(SearchPhaseController.EMPTY_DOCS, firstResults, (AtomicArray<? extends FetchSearchResultProvider>) AtomicArray.empty());
             String scrollId = null;
             if (request.scroll() != null) {

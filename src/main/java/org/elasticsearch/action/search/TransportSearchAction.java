@@ -81,7 +81,7 @@ public class TransportSearchAction extends TransportAction<SearchRequest, Search
         //action 为search
         transportService.registerHandler(SearchAction.NAME, new TransportHandler());
     }
-
+    //查询入口
     @Override
     protected void doExecute(SearchRequest searchRequest, ActionListener<SearchResponse> listener) {
         // optimize search type for cases where there is only one shard group to search on
@@ -92,6 +92,7 @@ public class TransportSearchAction extends TransportAction<SearchRequest, Search
                 Map<String, Set<String>> routingMap = clusterState.metaData().resolveSearchRouting(searchRequest.routing(), searchRequest.indices());
                 int shardCount = clusterService.operationRouting().searchShardsCount(clusterState, searchRequest.indices(), concreteIndices, routingMap, searchRequest.preference());
                 if (shardCount == 1) {
+                    //  只有一个分片  直接  search type 置为 QUERY_AND_FETCH
                     // if we only have one group, then we always want Q_A_F, no need for DFS, and no need to do THEN since we hit one shard
                     searchRequest.searchType(QUERY_AND_FETCH);
                 }

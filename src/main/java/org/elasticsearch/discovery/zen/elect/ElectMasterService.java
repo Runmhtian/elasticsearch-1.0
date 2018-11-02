@@ -32,7 +32,7 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- *
+ *  master 选举
  */
 public class ElectMasterService extends AbstractComponent {
 
@@ -40,6 +40,9 @@ public class ElectMasterService extends AbstractComponent {
 
     private final NodeComparator nodeComparator = new NodeComparator();
 
+    /**
+    最少master node 个数
+     */
     private volatile int minimumMasterNodes;
 
     public ElectMasterService(Settings settings) {
@@ -56,6 +59,11 @@ public class ElectMasterService extends AbstractComponent {
         return minimumMasterNodes;
     }
 
+    /**
+     * 判断是否有充足的masterNode
+     * @param nodes
+     * @return
+     */
     public boolean hasEnoughMasterNodes(Iterable<DiscoveryNode> nodes) {
         if (minimumMasterNodes < 1) {
             return true;
@@ -89,6 +97,7 @@ public class ElectMasterService extends AbstractComponent {
     }
 
     /**
+     * 从可能的master节点中  选举一个master   id最小的
      * Elects a new master out of the possible nodes, returning it. Returns <tt>null</tt>
      * if no master has been elected.
      */
@@ -105,17 +114,21 @@ public class ElectMasterService extends AbstractComponent {
         if (possibleNodes.isEmpty()) {
             return null;
         }
-        // clean non master nodes
+        // clean non master nodes  将所有masternode取出来，默认每个节点都可以是masternode，但是只有一个节点是主节点
         for (Iterator<DiscoveryNode> it = possibleNodes.iterator(); it.hasNext(); ) {
             DiscoveryNode node = it.next();
             if (!node.masterNode()) {
                 it.remove();
             }
         }
+        // 节点排序  按照id
         CollectionUtil.introSort(possibleNodes, nodeComparator);
         return possibleNodes;
     }
 
+    /**
+     * 节点比较器
+     */
     private static class NodeComparator implements Comparator<DiscoveryNode> {
 
         @Override

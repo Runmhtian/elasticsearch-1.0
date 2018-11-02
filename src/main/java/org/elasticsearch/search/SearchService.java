@@ -150,6 +150,8 @@ public class SearchService extends AbstractLifecycleComponent<SearchService> {
         elementParsers.put("stats", new StatsGroupsParseElement());
         this.elementParsers = ImmutableMap.copyOf(elementParsers);
 
+
+        //每一分钟去检查 activeContexts中的searchContext  过期
         this.keepAliveReaper = threadPool.scheduleWithFixedDelay(new Reaper(), keepAliveInterval);
 
         this.indicesWarmer.addListener(new NormsWarmer());
@@ -189,7 +191,7 @@ public class SearchService extends AbstractLifecycleComponent<SearchService> {
             cleanContext(context);
         }
     }
-
+    //  scan 必须和scroll 一起使用  scan 第一次请求没有fetch   type转为 count
     public QuerySearchResult executeScan(ShardSearchRequest request) throws ElasticsearchException {
         SearchContext context = createAndPutContext(request);
         assert context.searchType() == SearchType.SCAN;
@@ -212,6 +214,7 @@ public class SearchService extends AbstractLifecycleComponent<SearchService> {
         }
     }
 
+    //scan scroll scrollId 请求  有fetch  searchType转为scan
     public ScrollQueryFetchSearchResult executeScan(InternalScrollSearchRequest request) throws ElasticsearchException {
         SearchContext context = findContext(request.id());
         contextProcessing(context);
@@ -239,7 +242,7 @@ public class SearchService extends AbstractLifecycleComponent<SearchService> {
             cleanContext(context);
         }
     }
-
+    // query 查询
     public QuerySearchResult executeQueryPhase(ShardSearchRequest request) throws ElasticsearchException {
         SearchContext context = createAndPutContext(request);
         try {
@@ -312,9 +315,9 @@ public class SearchService extends AbstractLifecycleComponent<SearchService> {
         }
     }
 
-    //执行查询
+    //执行查询 fetch  query和fetch都包含
     public QueryFetchSearchResult executeFetchPhase(ShardSearchRequest request) throws ElasticsearchException {
-        SearchContext context = createAndPutContext(request);
+        SearchContext context = createAndPutContext(request);  //得到searchContext
         contextProcessing(context);
         try {
             context.indexShard().searchService().onPreQueryPhase(context);
@@ -398,12 +401,12 @@ public class SearchService extends AbstractLifecycleComponent<SearchService> {
             cleanContext(context);
         }
     }
-
+    //scroll query fetch
     public ScrollQueryFetchSearchResult executeFetchPhase(InternalScrollSearchRequest request) throws ElasticsearchException {
-        SearchContext context = findContext(request.id());
+        SearchContext context = findContext(request.id());  //  id 是从scrollId中解析出来的  searchId  也就是 上个searchContext的id
         contextProcessing(context);
         try {
-            processScroll(request, context);
+            processScroll(request, context); //重置context from keepalive
             context.indexShard().searchService().onPreQueryPhase(context);
             long time = System.nanoTime();
             try {
@@ -413,10 +416,11 @@ public class SearchService extends AbstractLifecycleComponent<SearchService> {
                 throw ExceptionsHelper.convertToRuntime(e);
             }
             long time2 = System.nanoTime();
-            context.indexShard().searchService().onQueryPhase(context, time2 - time);
+            context.indexShard().searchService().onQueryPhase(context, time2 - time); //统计
             context.indexShard().searchService().onPreFetchPhase(context);
             try {
-                shortcutDocIdsToLoad(context);
+                shortcutDocIdsToLoad(context);// 得到需要fetch的docId
+                // fetch doc 到context中
                 fetchPhase.execute(context);
                 if (context.scroll() == null) {
                     freeContext(request.id());
@@ -427,6 +431,7 @@ public class SearchService extends AbstractLifecycleComponent<SearchService> {
                 context.indexShard().searchService().onFailedFetchPhase(context);
                 throw ExceptionsHelper.convertToRuntime(e);
             }
+            //统计
             context.indexShard().searchService().onFetchPhase(context, System.nanoTime() - time2);
             return new ScrollQueryFetchSearchResult(new QueryFetchSearchResult(context.queryResult(), context.fetchResult()), context.shardTarget());
         } catch (Throwable e) {
@@ -471,13 +476,16 @@ public class SearchService extends AbstractLifecycleComponent<SearchService> {
         SearchContext.setCurrent(context);
         return context;
     }
-
+    /*
+    根据request创建SearchContext  并将context  添加到activeContexts中
+    这个类在构造的时候回启动一个线程来  跟去keepalive时间去  清理其中的context
+     */
     final SearchContext createAndPutContext(ShardSearchRequest request) throws ElasticsearchException {
-        SearchContext context = createContext(request, null);
+        SearchContext context = createContext(request, null);  //创建context
         boolean success = false;
         try {
-            activeContexts.put(context.id(), context);
-            context.indexShard().searchService().onNewContext(context);
+            activeContexts.put(context.id(), context);  // 保存context
+            context.indexShard().searchService().onNewContext(context);  //统计
             success = true;
             return context;
         } finally {
@@ -499,6 +507,8 @@ public class SearchService extends AbstractLifecycleComponent<SearchService> {
         try {
             context.scroll(request.scroll());
 
+            // 解析request 中的 source 信息    request source 中包含  from 和size信息
+            // 由SearchSourceBuilder  构建到 searchRequest中
             parseSource(context, request.source());
             parseSource(context, request.extraSource());
 
@@ -516,11 +526,11 @@ public class SearchService extends AbstractLifecycleComponent<SearchService> {
             fetchPhase.preProcess(context);
 
             // compute the context keep alive
-            long keepAlive = defaultKeepAlive;
-            if (request.scroll() != null && request.scroll().keepAlive() != null) {
+            long keepAlive = defaultKeepAlive;   //不管是不是scroll searchContext都会 默认为5分钟
+            if (request.scroll() != null && request.scroll().keepAlive() != null) {  // scroll keep alive  就是search context的存活时间
                 keepAlive = request.scroll().keepAlive().millis();
             }
-            context.keepAlive(keepAlive);
+            context.keepAlive(keepAlive);  //https://www.elastic.co/guide/en/elasticsearch/reference/2.1/search-request-scroll.html#scroll-scan
         } catch (Throwable e) {
             context.release();
             throw ExceptionsHelper.convertToRuntime(e);
@@ -612,17 +622,18 @@ public class SearchService extends AbstractLifecycleComponent<SearchService> {
      */
     private void shortcutDocIdsToLoad(SearchContext context) {
         TopDocs topDocs = context.queryResult().topDocs();
-        if (topDocs.scoreDocs.length < context.from()) {
+        if (topDocs.scoreDocs.length < context.from()) {  // 小于from
             // no more docs...
             context.docIdsToLoad(EMPTY_DOC_IDS, 0, 0);
             return;
         }
         int totalSize = context.from() + context.size();
+        //需要load的doc id数组
         int[] docIdsToLoad = new int[Math.min(topDocs.scoreDocs.length - context.from(), context.size())];
         int counter = 0;
         for (int i = context.from(); i < totalSize; i++) {
             if (i < topDocs.scoreDocs.length) {
-                docIdsToLoad[counter] = topDocs.scoreDocs[i].doc;
+                docIdsToLoad[counter] = topDocs.scoreDocs[i].doc;  //doc num
             } else {
                 break;
             }
@@ -647,7 +658,7 @@ public class SearchService extends AbstractLifecycleComponent<SearchService> {
 
     private void processScroll(InternalScrollSearchRequest request, SearchContext context) {
         // process scroll
-        context.from(context.from() + context.size());
+        context.from(context.from() + context.size()); //from 向后置
         context.scroll(request.scroll());
         // update the context keep alive based on the new scroll value
         if (request.scroll() != null && request.scroll().keepAlive() != null) {
