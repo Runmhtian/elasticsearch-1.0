@@ -59,9 +59,9 @@ public class DiscoveryService extends AbstractLifecycleComponent<DiscoveryServic
                 latch.countDown();
             }
         };
-        discovery.addListener(listener);
+        discovery.addListener(listener);  // 线程间流传控制  在submitStateUpdateTask中会去调用  initialStateProcessed
         try {
-            discovery.start();  //  start 方法中应该  调用了initialStateProcessed 来latch.countDown()  并且应该是线程启动  ，可以直接向下运行代码
+            discovery.start();  //  调用了 ZenDiscovery中的  doStart方法
             if (initialStateTimeout.millis() > 0) {
                 try {
                     logger.trace("waiting for {} for the initial state to be set by the discovery", initialStateTimeout);

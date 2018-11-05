@@ -231,7 +231,7 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
     }
 
 
-    /*
+    /**
     集群状态更新task，主节点先调用  集群状态改变
     进而调用publish，其他节点收到 集群状态改变的请求，也会来调用此方法
      */
@@ -323,7 +323,7 @@ public class InternalClusterService extends AbstractLifecycleComponent<ClusterSe
                 return;
             }
 
-            if (previousClusterState == newClusterState) {  // 状态没有变化？？ 返回
+            if (previousClusterState == newClusterState) {  // 状态没有变化   返回
                 logger.debug("processing [{}]: no change in cluster_state", source);
                 if (updateTask instanceof AckedClusterStateUpdateTask) { //没有变化不需要ack
                     //no need to wait for ack if nothing changed, the update can be counted as acknowledged

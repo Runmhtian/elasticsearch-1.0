@@ -220,7 +220,7 @@ public class ThreadPool extends AbstractComponent {
     public ScheduledFuture<?> scheduleWithFixedDelay(Runnable command, TimeValue interval) {
         return scheduler.scheduleWithFixedDelay(new LoggingRunnable(command), interval.millis(), interval.millis(), TimeUnit.MILLISECONDS);
     }
-
+    // 给定延迟后执行一次
     public ScheduledFuture<?> schedule(TimeValue delay, String name, Runnable command) {
         if (!Names.SAME.equals(name)) {
             command = new ThreadedRunnable(command, executor(name));

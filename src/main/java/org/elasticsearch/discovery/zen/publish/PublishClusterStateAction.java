@@ -157,6 +157,8 @@ public class PublishClusterStateAction extends AbstractComponent {
         }
     }
 
+    // 接收到集群状态更新请求时的处理
+
     private class PublishClusterStateRequestHandler extends BaseTransportRequestHandler<BytesTransportRequest> {
 
         static final String ACTION = "discovery/zen/publish";

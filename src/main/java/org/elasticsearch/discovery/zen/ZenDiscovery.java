@@ -275,7 +275,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
     }
 
     /**
-     * 集群状态改变时  调用
+     * 集群状态改变时  调用  更新latestDiscoNodes  和nodesFD   只有master会调用
      * @param clusterState
      * @param ackListener
      */
@@ -313,7 +313,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
      */
     private void innerJoinCluster() {
         boolean retry = true;
-        while (retry) {
+        while (retry) {  // 循环  当没有master节点时，等待成为master的节点完成初始化，再去findMaster  就能够得到PingMaster，然后选出master
             if (lifecycle.stoppedOrClosed()) {
                 return;
             }
@@ -321,11 +321,12 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
             // 得到 master节点，可能是选举得到的也可能是ping
             DiscoveryNode masterNode = findMaster();
             if (masterNode == null) {
+                // 若是masterNode为null，则等待 nodeId最小的节点初始化完成，再去加入集群
                 logger.trace("no masterNode returned");
                 retry = true;
                 continue;
             }
-            //若是本地节点被选为 master
+            //若是本地节点被选为 master  说明当前集群 其他节点在等待master初始化
             if (localNode.equals(masterNode)) {
                 this.master = true;
                 //开启普通节点故障检测
@@ -335,7 +336,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
                     public ClusterState execute(ClusterState currentState) {
                         DiscoveryNodes.Builder builder = new DiscoveryNodes.Builder()
                                 .localNodeId(localNode.id())
-                                .masterNodeId(localNode.id())
+                                .masterNodeId(localNode.id())  //集群状态中  自己的master节点。
                                         // put our local node
                                 .put(localNode);
                         // update the fact that we are the master...
@@ -352,7 +353,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
 
                     @Override
                     public void clusterStateProcessed(String source, ClusterState oldState, ClusterState newState) {
-                        sendInitialStateEventIfNeeded();
+                        sendInitialStateEventIfNeeded();   //调用listener
                     }
                 });
             } else {  //local 不是master
@@ -439,14 +440,15 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
             @Override
             public ClusterState execute(ClusterState currentState) {
                 DiscoveryNodes.Builder builder = DiscoveryNodes.builder(currentState.nodes())
-                        .remove(node.id());
+                        .remove(node.id());  //去除这个node
                 latestDiscoNodes = builder.build();
                 currentState = ClusterState.builder(currentState).nodes(latestDiscoNodes).build();
                 // check if we have enough master nodes, if not, we need to move into joining the cluster again
+                // master数目不够，  重新加入集群  asyncJoinCluster
                 if (!electMaster.hasEnoughMasterNodes(currentState.nodes())) {
                     return rejoin(currentState, "not enough master nodes");
                 }
-                // eagerly run reroute to remove dead nodes from routing table
+                // eagerly run reroute to remove dead nodes from routing table  更新routing table
                 RoutingAllocation.Result routingResult = allocationService.reroute(ClusterState.builder(currentState).build());
                 return ClusterState.builder(currentState).routingResult(routingResult).build();
             }
@@ -498,6 +500,12 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
 
     /**
      * master Node 故障时调用
+     *
+     * 这里选举出来的非master节点  也调用了 submitStateUpdateTask
+     * master节点在submitStateUpdateTask 中又会通过publish 到非master节点，再调用一次
+     *
+     * 不会出现重复调用么？
+     *
      * @param masterNode
      * @param reason
      */
@@ -580,9 +588,9 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
     private final BlockingQueue<ProcessClusterState> processNewClusterStates = ConcurrentCollections.newBlockingQueue();
 
 
-    //接受到集群状态发布请求
+    //处理master 发布的集群状态更新请求
     void handleNewClusterStateFromMaster(ClusterState newClusterState, final PublishClusterStateAction.NewClusterStateListener.NewStateProcessed newStateProcessed) {
-        if (master) {
+        if (master) {  // 当前节点是否是master
             final ClusterState newState = newClusterState;
             clusterService.submitStateUpdateTask("zen-disco-master_receive_cluster_state_from_another_master [" + newState.nodes().masterNode() + "]", Priority.URGENT, new ProcessedClusterStateUpdateTask() {
                 @Override
@@ -614,7 +622,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
                 }
 
             });
-        } else {
+        } else { // 非master节点  接收到了其他节点的集群状态更新请求的处理
             if (newClusterState.nodes().localNode() == null) {
                 logger.warn("received a cluster state from [{}] and not part of the cluster, should not happen", newClusterState.nodes().masterNode());
                 newStateProcessed.onNewClusterStateFailed(new ElasticsearchIllegalStateException("received state from a node that is not part of the cluster"));
@@ -626,6 +634,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
                 final ProcessClusterState processClusterState = new ProcessClusterState(newClusterState, newStateProcessed);
                 processNewClusterStates.add(processClusterState);
 
+                // 同样会调用这个task
                 clusterService.submitStateUpdateTask("zen-disco-receive(from master [" + newClusterState.nodes().masterNode() + "])", Priority.URGENT, new ProcessedClusterStateUpdateTask() {
                     @Override
                     public ClusterState execute(ClusterState currentState) {
@@ -669,6 +678,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
                         ClusterState updatedState = stateToProcess.clusterState;
 
                         // if the new state has a smaller version, and it has the same master node, then no need to process it
+                        // 新的状态 版本先现有的小  直接返回当前状态
                         if (updatedState.version() < currentState.version() && Objects.equal(updatedState.nodes().masterNodeId(), currentState.nodes().masterNodeId())) {
                             return currentState;
                         }
@@ -683,6 +693,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
 
                         // check to see that we monitor the correct master of the cluster
                         if (masterFD.masterNode() == null || !masterFD.masterNode().equals(latestDiscoNodes.masterNode())) {
+                            //masterNode改变 重启master故障检测
                             masterFD.restart(latestDiscoNodes.masterNode(), "new cluster state received and we are monitoring the wrong master [" + masterFD.masterNode() + "]");
                         }
 
@@ -728,7 +739,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
     }
 
     /**
-     * master 接受到其他节点的加入请求
+     * master 接受到其他节点的加入请求   更新到latestDiscoNodes
      * @param node
      * @return
      */
@@ -785,6 +796,13 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
      * 选举 master节点   选举节点时使用的是pingService
      *
      * 故障检测  使用transport
+     *
+     * 根据ping 返回的response 选举master
+     *
+     * 若是ping响应中没有 任何master 信息，则直接根据所有节点配置  重新选举
+     *
+     * 也就是说优先根据ping response 中已有的master信息选举，一般来说 只有一个master，当新的节点加入时，还会选择这个master
+     * 若是ping Response 中有 不同的master节点，难道是出现了网络分区
      * @return
      */
     private DiscoveryNode findMaster() {
@@ -830,7 +848,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
             }
             logger.debug(sb.toString());
         }
-        //ping 得到的可能的master
+        //ping 得到的响应中 会告知当前节点知道的master 节点
         List<DiscoveryNode> pingMasters = newArrayList();
         for (ZenPing.PingResponse pingResponse : pingResponses) {
             if (pingResponse.master() != null) {
@@ -848,7 +866,8 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
         if (!electMaster.hasEnoughMasterNodes(possibleMasterNodes)) {
             return null;
         }
-
+        // 若是ping响应都没有master信息，则选举一个master，若是本地节点则返回，否则 返回null，不做任何处理，等待被选为master节点 去执行   集群都刚启动时会出现
+        //若是从ping响应中选举的master，若是master不为null，则返回master
         if (pingMasters.isEmpty()) {
             // lets tie break between discovered nodes
             DiscoveryNode electedMaster = electMaster.electMaster(possibleMasterNodes);
@@ -901,6 +920,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
         }
     }
 
+    // 新的集群状态更新 时调用
     private class NewClusterStateListener implements PublishClusterStateAction.NewClusterStateListener {
 
         @Override
@@ -933,7 +953,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
 
 
     /**
-     * master 链接不到是会调用MasterNodeFailureListener中的onDisconnectedFromMaster 方法
+     *
      */
     private class MasterNodeFailureListener implements MasterFaultDetection.Listener {
 

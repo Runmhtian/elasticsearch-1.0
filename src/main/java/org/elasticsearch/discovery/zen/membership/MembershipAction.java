@@ -245,6 +245,8 @@ public class MembershipAction extends AbstractComponent {
         }
     }
 
+
+    // 处理 leave请求，让某个节点脱离集群
     private class LeaveRequestRequestHandler extends BaseTransportRequestHandler<LeaveRequest> {
 
         static final String ACTION = "discovery/zen/leave";

@@ -109,7 +109,7 @@ public class NodesFaultDetection extends AbstractComponent {
     public void updateNodes(DiscoveryNodes nodes) {
         DiscoveryNodes prevNodes = latestNodes;
         this.latestNodes = nodes;
-        if (!running) {
+        if (!running) {  // 若是故障检测  没有运行的话  直接返回  ，但是latestNodes属性已被更改，只是没有起定时ping线程
             return;
         }
         DiscoveryNodes.Delta delta = nodes.delta(prevNodes);
@@ -221,6 +221,7 @@ public class NodesFaultDetection extends AbstractComponent {
                                     return;
                                 }
                                 nodeFD.retryCount = 0;
+                                // 正确响应后  继续在间隔后执行
                                 threadPool.schedule(pingInterval, ThreadPool.Names.SAME, SendPingRequest.this);
                             }
                         }

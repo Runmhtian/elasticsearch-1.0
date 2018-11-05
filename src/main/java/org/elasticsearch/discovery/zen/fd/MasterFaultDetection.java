@@ -154,7 +154,7 @@ public class MasterFaultDetection extends AbstractComponent {
             masterPinger.stop();
         }
         this.masterPinger = new MasterPinger();
-        // start the ping process   定时的去ping master
+        // start the ping process   在ping间隔后调用一次，但是在MasterPinger内部，在一次ping调用成功后  会间隔调用
         threadPool.schedule(pingInterval, ThreadPool.Names.SAME, masterPinger);
     }
 
@@ -296,6 +296,7 @@ public class MasterFaultDetection extends AbstractComponent {
                                     notifyDisconnectedFromMaster();
                                 }
                                 // we don't stop on disconnection from master, we keep pinging it
+                                // 接收到master的响应后  在间隔后在去ping
                                 threadPool.schedule(pingInterval, ThreadPool.Names.SAME, MasterPinger.this);
                             }
                         }

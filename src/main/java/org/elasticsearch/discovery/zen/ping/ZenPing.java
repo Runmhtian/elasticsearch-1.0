@@ -56,7 +56,7 @@ public interface ZenPing extends LifecycleComponent<ZenPing> {
 
         private DiscoveryNode target;
 
-        private DiscoveryNode master;
+        private DiscoveryNode master;  //当前节点 知道的master信息
 
         private PingResponse() {
         }

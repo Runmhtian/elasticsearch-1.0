@@ -51,6 +51,12 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * 在选举新的master 时， 调用此服务，来ping 所有其他节点
  *
+ * 这里UnicastZenPing  是必定会启动
+ *
+ * 而MulticastZenPing 会根据配置来启动
+ *
+ * 在调用ping时，两者同时去ping，最终  合并成一个结果
+ *
  */
 public class ZenPingService extends AbstractLifecycleComponent<ZenPing> implements ZenPing {
 
@@ -177,7 +183,7 @@ public class ZenPingService extends AbstractLifecycleComponent<ZenPing> implemen
                     responses.put(pingResponse.target(), pingResponse);
                 }
             }
-            if (counter.decrementAndGet() == 0) {
+            if (counter.decrementAndGet() == 0) {  // 等待zenpings 都response
                 listener.onPing(responses.values().toArray(new PingResponse[responses.size()]));
             }
         }

@@ -170,22 +170,33 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
         }
     }
 
+    /**
+     *  在 timeout时间内 多次执行ping，共三次    拿到response  PingListener能够 response
+     * @param listener
+     * @param timeout
+     * @throws ElasticsearchException
+     */
     @Override
     public void ping(final PingListener listener, final TimeValue timeout) throws ElasticsearchException {
         final SendPingsHandler sendPingsHandler = new SendPingsHandler(pingIdGenerator.incrementAndGet());
+        // receivedResponses 临时存放 response的地方， 多个方法间不用传递参数
         receivedResponses.put(sendPingsHandler.id(), ConcurrentCollections.<DiscoveryNode, PingResponse>newConcurrentMap());
         sendPings(timeout, null, sendPingsHandler);  //一上来就ping
-        //然后定时执行
+        // 给定延迟有执行一次
         threadPool.schedule(TimeValue.timeValueMillis(timeout.millis() / 2), ThreadPool.Names.GENERIC, new Runnable() {
             @Override
             public void run() {
                 try {
+                    // 二分之一timeout后再执行一次
                     sendPings(timeout, null, sendPingsHandler);
+
                     threadPool.schedule(TimeValue.timeValueMillis(timeout.millis() / 2), ThreadPool.Names.GENERIC, new Runnable() {
                         @Override
                         public void run() {
                             try {
+                                //再过二分之一timeout后再执行一次
                                 sendPings(timeout, TimeValue.timeValueMillis(timeout.millis() / 2), sendPingsHandler);
+                                // 去除 并拿到responses
                                 ConcurrentMap<DiscoveryNode, PingResponse> responses = receivedResponses.remove(sendPingsHandler.id());
                                 sendPingsHandler.close();
                                 for (DiscoveryNode node : sendPingsHandler.nodeToDisconnect) {
@@ -342,6 +353,7 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
                 return ThreadPool.Names.SAME;
             }
 
+//            合并response 到receivedResponses中
             @Override
             public void handleResponse(UnicastPingResponse response) {
                 logger.trace("[{}] received response from {}: {}", id, nodeToSend, Arrays.toString(response.pingResponses));
@@ -391,7 +403,7 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
             }
         });
     }
-
+    // 接收到ping 请求 处理
     private UnicastPingResponse handlePingRequest(final UnicastPingRequest request) {
         if (lifecycle.stoppedOrClosed()) {
             throw new ElasticsearchIllegalStateException("received ping request while stopped/closed");
@@ -406,6 +418,7 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
 
         List<PingResponse> pingResponses = newArrayList(temporalResponses);
         DiscoveryNodes discoNodes = nodesProvider.nodes();
+        // 添加response
         pingResponses.add(new PingResponse(discoNodes.localNode(), discoNodes.masterNode(), clusterName));
 
 
@@ -416,6 +429,9 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
         return unicastPingResponse;
     }
 
+    /**
+     * 处理接收到的  UnicastPingRequest
+     */
     class UnicastPingRequestHandler extends BaseTransportRequestHandler<UnicastPingRequest> {
 
         static final String ACTION = "discovery/zen/unicast";
