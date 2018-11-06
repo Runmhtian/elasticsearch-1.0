@@ -190,6 +190,22 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
 
         // do the join on a different thread, the DiscoveryService waits for 30s anyhow till it is discovered
         // 异步加入集群，DiscoveryService无论如何都会等待30秒才会被发现  新节点启动 会选举新的master
+
+        /*
+        这里30s后加入集群是很有必要的，让节点先可以被ping到，但是不能够加入集群， 其他节点正好选完master，但是还没有形成集群  30s足够 让master节点完成初始化并把集群状态同步到其他节点
+
+        若是没有这30s， 节点ABC，A 被选为master，BC阻塞，A正在初始化的时候，D刚好启动，D findMaster 发现自己Id最小，也进行master的初始化
+        这样可能会出现问题
+        而通过节点启动时 延迟30s 避免了这样情况的发生
+
+          实际上就是避免  原集群刚运行完findMaster ，新加入的节点直接去运行findMaster 造成不一致
+          通过延迟30s，新加入的节点会在30s 后再去运行findMaster 就不会出现问题
+
+        而若是新加入的节点在 原集群运行findMaster之前启动，则其他节点都会无线循环  等待新加入节点在30s后运行发现自己是master，然后进行初始化
+
+        这里都假设新加入的节点id 是最小的。
+
+         */
         asyncJoinCluster();
     }
 
@@ -289,6 +305,8 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
         publishClusterState.publish(clusterState, ackListener);
     }
 
+
+
     private void asyncJoinCluster() {
         if (currentJoinThread != null) {
             // we are already joining, ignore...
@@ -310,6 +328,14 @@ public class ZenDiscovery extends AbstractLifecycleComponent<Discovery> implemen
 
     /**
      * 加入集群
+     *
+     * 若是先启动三个节点，然后三个节点中  当运行到 findMaster时 节点A 被选为master， 节点BC 阻塞 ，这是新的节点D 加入，且节点ID最小，节点D
+     *
+     * 因为节点在启动30s后才会 加入集群，因此节点Bc再次findMaster时 master还不是自己， 而节点D 还没有加入集群，只是能够ping到，A节点提交了状态更新请求
+     * B c 接收包含master信息的ping响应后，findMaster结果为A，然后形成一个A为master，b，c为普通node的集群，30s过后D加入集群，ping 响应中
+     * A是master，因此findMaster的结果还是A
+     *
+     *
      */
     private void innerJoinCluster() {
         boolean retry = true;
