@@ -102,7 +102,7 @@ public class MasterFaultDetection extends AbstractComponent {
         if (registerConnectionListener) {
             transportService.addConnectionListener(connectionListener);
         }
-
+        // 注册action
         transportService.registerHandler(MasterPingRequestHandler.ACTION, new MasterPingRequestHandler());
     }
 
@@ -328,12 +328,13 @@ public class MasterFaultDetection extends AbstractComponent {
                                     }
                                     int retryCount = ++MasterFaultDetection.this.retryCount;
                                     logger.trace("[master] failed to ping [{}], retry [{}] out of [{}]", exp, masterNode, retryCount, pingRetryCount);
-                                    if (retryCount >= pingRetryCount) {
+                                    if (retryCount >= pingRetryCount) { //超过重试次数
                                         logger.debug("[master] failed to ping [{}], tried [{}] times, each with maximum [{}] timeout", masterNode, pingRetryCount, pingRetryTimeout);
                                         // not good, failure
                                         notifyMasterFailure(masterToPing, "failed to ping, tried [" + pingRetryCount + "] times, each with  maximum [" + pingRetryTimeout + "] timeout");
                                     } else {
                                         // resend the request, not reschedule, rely on send timeout
+                                        // 重发ping请求
                                         transportService.sendRequest(masterToPing, MasterPingRequestHandler.ACTION, new MasterPingRequest(nodesProvider.nodes().localNode().id(), masterToPing.id()), options().withType(TransportRequestOptions.Type.PING).withTimeout(pingRetryTimeout), this);
                                     }
                                 }

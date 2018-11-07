@@ -112,7 +112,7 @@ public class NodesFaultDetection extends AbstractComponent {
         if (!running) {  // 若是故障检测  没有运行的话  直接返回  ，但是latestNodes属性已被更改，只是没有起定时ping线程
             return;
         }
-        DiscoveryNodes.Delta delta = nodes.delta(prevNodes);
+        DiscoveryNodes.Delta delta = nodes.delta(prevNodes); //得到有改变的node
         for (DiscoveryNode newNode : delta.addedNodes()) {
             if (newNode.id().equals(nodes.localNodeId())) {
                 // no need to monitor the local node

@@ -171,7 +171,7 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
     }
 
     /**
-     *  在 timeout时间内 多次执行ping，共三次    拿到response  PingListener能够 response
+     *  在 timeout时间内 多次执行ping，共三次    拿到response  PingListener存储 response
      * @param listener
      * @param timeout
      * @throws ElasticsearchException
@@ -256,9 +256,11 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
         final UnicastPingRequest pingRequest = new UnicastPingRequest();
         pingRequest.id = sendPingsHandler.id();
         pingRequest.timeout = timeout;
+        // 已经发现的node  也就是现有集群中的节点
         DiscoveryNodes discoNodes = nodesProvider.nodes();
+        //target 是localNode
         pingRequest.pingResponse = new PingResponse(discoNodes.localNode(), discoNodes.masterNode(), clusterName);
-
+        // 配置的所有node
         List<DiscoveryNode> nodesToPing = newArrayList(nodes);
         for (UnicastHostsProvider provider : hostsProviders) {
             nodesToPing.addAll(provider.buildDynamicNodes());
@@ -297,10 +299,10 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
                             // connect to the node, see if we manage to do it, if not, bail
                             if (!nodeFoundByAddress) {
                                 logger.trace("[{}] connecting (light) to {}", sendPingsHandler.id(), nodeToSend);
-                                transportService.connectToNodeLight(nodeToSend);
+                                transportService.connectToNodeLight(nodeToSend);// light connect 一个node一个channals
                             } else {
                                 logger.trace("[{}] connecting to {}", sendPingsHandler.id(), nodeToSend);
-                                transportService.connectToNode(nodeToSend);
+                                transportService.connectToNode(nodeToSend);  //连接node 已有会直接返回
                             }
                             logger.trace("[{}] connected to {}", sendPingsHandler.id(), node);
                             if (receivedResponses.containsKey(sendPingsHandler.id())) {
@@ -361,6 +363,7 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
                     DiscoveryNodes discoveryNodes = nodesProvider.nodes();
                     for (PingResponse pingResponse : response.pingResponses) {
                         if (pingResponse.target().id().equals(discoveryNodes.localNodeId())) {
+                            // 这里自己发的请求响应 跳过？
                             // that's us, ignore
                             continue;
                         }
@@ -369,10 +372,12 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
                             logger.debug("[{}] filtering out response from {}, not same cluster_name [{}]", id, pingResponse.target(), pingResponse.clusterName().value());
                             continue;
                         }
+                        // Response 都存入了receivedResponses中
                         ConcurrentMap<DiscoveryNode, PingResponse> responses = receivedResponses.get(response.id);
                         if (responses == null) {
                             logger.warn("received ping response {} with no matching id [{}]", pingResponse, response.id);
                         } else {
+                            // 合并repsonse
                             PingResponse existingResponse = responses.get(pingResponse.target());
                             if (existingResponse == null) {
                                 responses.put(pingResponse.target(), pingResponse);
@@ -403,12 +408,21 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
             }
         });
     }
-    // 接收到ping 请求 处理
+
+    /**
+     * 返回的UnicastPingResponse 包含三部分pingResponse
+     * 1.request中的pingResponse
+     * 2.temporalResponses集合中的pingResponse，2*timeout时间会过期
+     * 3.localNode生成的pingResponse
+     * @param request
+     * @return
+     */
     private UnicastPingResponse handlePingRequest(final UnicastPingRequest request) {
         if (lifecycle.stoppedOrClosed()) {
             throw new ElasticsearchIllegalStateException("received ping request while stopped/closed");
         }
         temporalResponses.add(request.pingResponse);
+        // 2个timeout时间后 删除pingResponse
         threadPool.schedule(TimeValue.timeValueMillis(request.timeout.millis() * 2), ThreadPool.Names.SAME, new Runnable() {
             @Override
             public void run() {
@@ -418,7 +432,7 @@ public class UnicastZenPing extends AbstractLifecycleComponent<ZenPing> implemen
 
         List<PingResponse> pingResponses = newArrayList(temporalResponses);
         DiscoveryNodes discoNodes = nodesProvider.nodes();
-        // 添加response
+        // 添加response 这个是自己节点的信息
         pingResponses.add(new PingResponse(discoNodes.localNode(), discoNodes.masterNode(), clusterName));
 
 
